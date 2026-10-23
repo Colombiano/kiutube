@@ -12,6 +12,8 @@
 #include "common/appstate.h"
 #include "common/model.h"
 
+#include "ytm/ytm_bridge.h" /* kew-ytm: letras online + tradução PT */
+
 #include "loader/songdatatype.h"
 #include "lyrics.h"
 
@@ -79,6 +81,10 @@ void unload_lyrics(SongData *songdata)
         if (songdata->lyrics) {
                 freeLyrics(songdata->lyrics);
                 songdata->lyrics = NULL;
+        }
+        if (songdata->translated_lyrics) {
+                freeLyrics(songdata->translated_lyrics);
+                songdata->translated_lyrics = NULL;
         }
 }
 
@@ -420,6 +426,55 @@ int load_color(SongData *songdata)
                                &(songdata->green), &(songdata->blue));
 }
 
+/**
+ * kew-ytm: procura sidecar de tradução "<base>.pt.lrc" ao lado da faixa
+ * (escrito pelo fluxo YTM p/ faixas baixadas do YouTube Music).
+ */
+static Lyrics *load_translated_sidecar(const char *file_path)
+{
+        char pt_path[KEW_PATH_MAX];
+        if (snprintf(pt_path, sizeof(pt_path), "%s", file_path) >= (int)sizeof(pt_path))
+                return NULL;
+
+        char *dot = strrchr(pt_path, '.');
+        if (!dot || dot == pt_path)
+                return NULL;
+
+        if (snprintf(dot, sizeof(pt_path) - (dot - pt_path), ".pt.lrc") >=
+            (int)(sizeof(pt_path) - (dot - pt_path)))
+                return NULL;
+
+        FILE *f = fopen(pt_path, "rb");
+        if (!f)
+                return NULL;
+
+        fseek(f, 0, SEEK_END);
+        long size = ftell(f);
+        rewind(f);
+        if (size <= 0) {
+                fclose(f);
+                return NULL;
+        }
+
+        char *buf = malloc(size + 1);
+        if (!buf) {
+                fclose(f);
+                return NULL;
+        }
+
+        if (fread(buf, 1, size, f) != (size_t)size) {
+                free(buf);
+                fclose(f);
+                return NULL;
+        }
+        buf[size] = '\0';
+        fclose(f);
+
+        Lyrics *lyrics = loadLyricsFromBuffer(buf);
+        free(buf);
+        return lyrics;
+}
+
 void load_meta_data(SongData *songdata)
 {
         Model *model = get_model();
@@ -443,6 +498,31 @@ void load_meta_data(SongData *songdata)
         if (!songdata->lyrics) {
 
                 songdata->lyrics = loadLyricsFromLRC(songdata->file_path, songdata);
+        }
+
+        /* kew-ytm: sem letra local, busca LRCLIB (rede) e traduz p/ PT */
+        if (!songdata->lyrics && songdata->metadata &&
+            (songdata->metadata->artist[0] != '\0' || songdata->metadata->title[0] != '\0')) {
+
+                char *online_lrc = ytm_fetch_lyrics_ex_blocking(songdata->metadata->artist,
+                                                                songdata->metadata->title,
+                                                                (int)songdata->duration);
+                if (online_lrc) {
+                        songdata->lyrics = loadLyricsFromBuffer(online_lrc);
+                        if (songdata->lyrics && ytm_translation_enabled()) {
+                                char *translated = ytm_translate_blocking(online_lrc);
+                                if (translated) {
+                                        songdata->translated_lyrics = loadLyricsFromBuffer(translated);
+                                        ytm_free(translated);
+                                }
+                        }
+                        ytm_free(online_lrc);
+                }
+        }
+
+        /* kew-ytm: sidecar <base>.pt.lrc (faixas YTM baixadas) */
+        if (songdata->lyrics && !songdata->translated_lyrics) {
+                songdata->translated_lyrics = load_translated_sidecar(songdata->file_path);
         }
 
         if (res == -2) {
@@ -545,6 +625,50 @@ void load_meta_data(SongData *songdata)
         }
 }
 
+/** kew-ytm: deep-copy de Lyrics (usado p/ lyrics e translated_lyrics no clone). */
+static Lyrics *clone_lyrics(const Lyrics *src)
+{
+        if (!src)
+                return NULL;
+
+        Lyrics *dst = calloc(1, sizeof(*dst));
+        if (!dst)
+                return NULL;
+
+        dst->count = src->count;
+        dst->max_length = src->max_length;
+        dst->isTimed = src->isTimed;
+        dst->isKaraoke = src->isKaraoke;
+
+        if (src->count > 0) {
+                dst->lines = calloc(src->count, sizeof(*dst->lines));
+                if (!dst->lines) {
+                        free(dst);
+                        return NULL;
+                }
+
+                for (size_t i = 0; i < src->count; i++) {
+                        dst->lines[i].timestamp = src->lines[i].timestamp;
+                        dst->lines[i].numberOfTimestamps = src->lines[i].numberOfTimestamps;
+
+                        if (dst->isKaraoke) {
+                                memcpy(dst->lines[i].timestampArray, src->lines[i].timestampArray,
+                                       METADATA_MAX_LENGTH * sizeof(double));
+                        }
+
+                        if (src->lines[i].text) {
+                                dst->lines[i].text = g_strdup(src->lines[i].text);
+                                if (!dst->lines[i].text) {
+                                        freeLyricLines(dst);
+                                        free(dst);
+                                        return NULL;
+                                }
+                        }
+                }
+        }
+        return dst;
+}
+
 SongData *songdata_clone(const SongData *src)
 {
         if (!src)
@@ -571,6 +695,7 @@ SongData *songdata_clone(const SongData *src)
         dst->metadata = NULL;
         dst->cover = NULL;
         dst->lyrics = NULL;
+        dst->translated_lyrics = NULL; /* kew-ytm: evita alias shallow com src */
 
         // Track_id
         if (src->track_id) {
@@ -585,47 +710,13 @@ SongData *songdata_clone(const SongData *src)
         // load Metadata except lyrics
         unload_lyrics(dst);
 
-        // Deep-copy lyrics
-        if (src->lyrics) {
-                dst->lyrics = calloc(1, sizeof(*dst->lyrics));
-                if (!dst->lyrics)
-                        goto error;
-
-                dst->lyrics->count = src->lyrics->count;
-                dst->lyrics->max_length = src->lyrics->max_length;
-                dst->lyrics->isTimed = src->lyrics->isTimed;
-                dst->lyrics->isKaraoke = src->lyrics->isKaraoke;
-
-                if (src->lyrics->count > 0) {
-                        dst->lyrics->lines =
-                            calloc(src->lyrics->count,
-                                   sizeof(*dst->lyrics->lines));
-
-                        if (!dst->lyrics->lines)
-                                goto error;
-
-                        for (size_t i = 0; i < src->lyrics->count; i++) {
-                                dst->lyrics->lines[i].timestamp =
-                                    src->lyrics->lines[i].timestamp;
-                                dst->lyrics->lines[i].numberOfTimestamps =
-                                    src->lyrics->lines[i].numberOfTimestamps;
-
-                                if (dst->lyrics->isKaraoke) {
-                                        memcpy(dst->lyrics->lines[i].timestampArray,
-                                               src->lyrics->lines[i].timestampArray,
-                                               METADATA_MAX_LENGTH * sizeof(double));
-                                }
-
-                                if (src->lyrics->lines[i].text) {
-                                        dst->lyrics->lines[i].text =
-                                            g_strdup(src->lyrics->lines[i].text);
-
-                                        if (!dst->lyrics->lines[i].text)
-                                                goto error;
-                                }
-                        }
-                }
-        }
+        // Deep-copy lyrics (original e tradução kew-ytm)
+        dst->lyrics = clone_lyrics(src->lyrics);
+        if (src->lyrics && !dst->lyrics)
+                goto error;
+        dst->translated_lyrics = clone_lyrics(src->translated_lyrics);
+        if (src->translated_lyrics && !dst->translated_lyrics)
+                goto error;
 
         pthread_mutex_unlock(&(loader_data->mutex));
 

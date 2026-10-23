@@ -83,6 +83,13 @@ int parseTimedLyricsLine(char* line, Lyrics* lyrics, size_t* lyricsCapacity);
 Lyrics *loadLyricsFromLRC(const char *path,SongData *songdata);
 
 /**
+ * kew-ytm: parseia letras a partir de um buffer LRC em memória
+ * (texto vindo da ponte ytm: LRCLIB/tradução). Mesma detecção de
+ * timestamps de loadLyricsFromLRC. Liberar com freeLyrics().
+ */
+Lyrics *loadLyricsFromBuffer(const char *lrc_text);
+
+/**
  * Releases all allocated LyricLines in a Lyrics struct,
  * as well as their text buffers
  *

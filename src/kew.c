@@ -43,6 +43,8 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 #include "common/events.h"
 #include "common/model.h"
 
+#include "ytm/ytm_bridge.h"
+
 #include "data/img_func.h"
 
 #include "sys/discord_rpc.h"
@@ -976,6 +978,12 @@ void set_path_and_exit(int argc, char *argv[])
  */
 int main(int argc, char *argv[])
 {
+        /* kew-ytm: CLI headless da camada YouTube Music (antes de qualquer
+         * estado de terminal, para rodar puro em shell). */
+        if (argc > 1 && strcmp(argv[1], "--ytm") == 0) {
+                return ytm_cli_main(argc - 2, argv + 2);
+        }
+
         Model *model = get_model();
         AppState *state = &model->state;
         bool exact_search = false;

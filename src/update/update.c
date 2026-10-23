@@ -624,6 +624,21 @@ UpdateResult update(Model *model, struct Msg *msg)
                 set_dirty(DIRTY_ALL);
                 break;
 
+        case MSG_TOGGLETRANSLATION: /* kew-ytm */
+        {
+                // A UI renderiza model->songdata (clone do som). Trocar aqui
+                // afeta o desenhado; o clone seguinte volta ao original.
+                SongData *songdata = model->songdata;
+                if (songdata && songdata->lyrics && songdata->translated_lyrics) {
+                        Lyrics *tmp = songdata->lyrics;
+                        songdata->lyrics = songdata->translated_lyrics;
+                        songdata->translated_lyrics = tmp;
+                        model->state.ui.chosen_lyrics_row = 0;
+                        set_dirty(DIRTY_ALL);
+                }
+                break;
+        }
+
         case MSG_CYCLECOLORMODE:
                 result.cmd.type = CMD_CYCLE_COLOR_MODE;
                 set_dirty(DIRTY_ALL);

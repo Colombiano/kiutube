@@ -280,6 +280,54 @@ static char *findLRC(const char *folder, const char *word)
         return NULL;
 }
 
+Lyrics *loadLyricsFromBuffer(const char *lrc_text)
+{
+        if (!lrc_text || !*lrc_text)
+                return nullptr;
+
+        // tmpfile em vez de fmemopen: portável (macOS não tem fmemopen)
+        FILE *file = tmpfile();
+        if (!file)
+                return nullptr;
+
+        size_t len = strlen(lrc_text);
+        if (fwrite(lrc_text, 1, len, file) != len) {
+                fclose(file);
+                return nullptr;
+        }
+        rewind(file);
+
+        Lyrics *lyrics = (Lyrics *)calloc(1, sizeof(Lyrics));
+        if (!lyrics) {
+                fclose(file);
+                return nullptr;
+        }
+
+        lyrics->max_length = 1024;
+
+        char lineBuffer[1024];
+        int foundTimestamp = 0;
+        while (fgets(lineBuffer, sizeof(lineBuffer), file)) {
+                if (lineBuffer[0] == '[' && isdigit((unsigned char)lineBuffer[1])) {
+                        foundTimestamp = 1;
+                        break;
+                }
+        }
+
+        rewind(file);
+
+        int ok = foundTimestamp ? loadTimedLyrics(file, lyrics) : loadUntimedLyrics(file, lyrics);
+
+        fclose(file);
+
+        if (!ok) {
+                freeLyrics(lyrics);
+                return nullptr;
+        }
+
+        return lyrics;
+}
+
 Lyrics *loadLyricsFromLRC(const char *path,SongData *songdata)
 {
         char lrcPath[KEW_PATH_MAX];

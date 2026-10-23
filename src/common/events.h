@@ -71,7 +71,8 @@ enum MsgType {
         MSG_CROSSFADE_SLOW,
         MSG_TOGGLECROSSFADE,
         MSG_PLAY,
-        MSG_MINICONTROLS_SET
+        MSG_MINICONTROLS_SET,
+        MSG_TOGGLETRANSLATION /* kew-ytm: alterna letra original/traduzida (F9) */
 };
 
 typedef struct

@@ -76,6 +76,7 @@ typedef struct
         bool hasErrors;
 
         Lyrics *lyrics;
+        Lyrics *translated_lyrics; /* kew-ytm: tradução PT (troca com F9) */
 } SongData;
 
 #endif

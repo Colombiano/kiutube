@@ -175,8 +175,16 @@ CFLAGS = $(COMMONFLAGS)
 # Compiler flags for C++ code
 CXXFLAGS = $(COMMONFLAGS) -std=gnu++20 -D_ISOC11_SOURCE
 
+# ytm layer (C++20): YouTube Music provider, LRCLIB lyrics, translation, Lua config
+YTM_SRCS = src/ytm/http.cpp src/ytm/ytm.cpp src/ytm/lrclib.cpp src/ytm/translate.cpp \
+           src/ytm/lua_config.cpp src/ytm/ytm_bridge.cpp src/ytm/ytm_cli.cpp
+YTM_OBJS = $(YTM_SRCS:src/%.cpp=$(OBJDIR)/%.o)
+YTM_CFLAGS = $(shell $(PKG_CONFIG) --cflags libcurl lua5.4 2>/dev/null)
+YTM_LIBS = $(shell $(PKG_CONFIG) --libs libcurl lua5.4 2>/dev/null)
+CXXFLAGS += $(YTM_CFLAGS)
+
 # Libraries
-LIBS = -lm -lopusfile -lglib-2.0 -lpthread $(PKG_LDFLAGS)
+LIBS = -lm -lopusfile -lglib-2.0 -lpthread $(PKG_LDFLAGS) $(YTM_LIBS)
 LIBS += -lstdc++
 
 LDFLAGS += -logg -lz
@@ -280,7 +288,7 @@ DEFINES += -DLOCALEDIR_RAW=$(LOCALEDIR)
 
 CFLAGS += -DKEW_DATADIR_RAW=$(KEW_DATADIR)
 
-all: kew
+all: kiutube
 .PHONY: FORCE
 FORCE:
 
@@ -336,7 +344,7 @@ ifeq ($(USE_SMTC), 1)
 endif
 
 # All objects together
-OBJS = $(OBJS_C) $(NESTEGG_OBJS) $(LIBMP4_OBJS) $(MACOS_MEDIA_OBJ) $(SMTC_OBJ) $(WIN_MANIFEST_OBJ)
+OBJS = $(OBJS_C) $(NESTEGG_OBJS) $(LIBMP4_OBJS) $(MACOS_MEDIA_OBJ) $(SMTC_OBJ) $(WIN_MANIFEST_OBJ) $(YTM_OBJS)
 
 # Create object directories
 $(OBJDIR):
@@ -376,8 +384,8 @@ $(WIN_MANIFEST_OBJ): src/ui/manifest.rc $(VERSION_H) src/ui/ms-utf8.xml kew.ico
 	$(WINDRES) -Isrc/ui -I. src/ui/manifest.rc -O coff -o $@
 
 # Link all objects safely together using C++ linker
-kew: $(OBJS) $(WRAPPER_OBJ) $(WIN_MANIFEST_OBJ) Makefile
-	$(CXX) -o kew $(OBJS) $(WRAPPER_OBJ) $(LIBS) $(LDFLAGS)
+kiutube: $(OBJS) $(WRAPPER_OBJ) $(WIN_MANIFEST_OBJ) Makefile
+	$(CXX) -o kiutube $(OBJS) $(WRAPPER_OBJ) $(LIBS) $(LDFLAGS)
 
 .PHONY: install
 install: all
@@ -392,7 +400,7 @@ install: all
 	mkdir -p "$(DESTDIR)$(PREFIX)/share/icons/hicolor/512x512/apps"
 
 	# Install binary and man page
-	install -m 0755 kew "$(DESTDIR)$(PREFIX)/bin/kew"
+	install -m 0755 kiutube "$(DESTDIR)$(PREFIX)/bin/kew"
 	install -m 0644 docs/kew.1 "$(DESTDIR)$(MAN_DIR)/man1/kew.1"
 
 	# Install Chinese translation

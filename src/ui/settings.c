@@ -97,6 +97,7 @@ TBKeyBinding key_bindings[MAX_KEY_BINDINGS] = {
     {0, 'd', 0, MSG_SEEKFORWARD, ""},
     {0, 'o', 0, MSG_SORTLIBRARY, ""},
     {0, 'm', 0, MSG_SHOWLYRICSPAGE, ""},
+    {TB_KEY_F9, 0, 0, MSG_TOGGLETRANSLATION, ""}, /* kew-ytm */
     {0, 's', TB_MOD_SHIFT, MSG_STOP, ""},
 
     // Playlist actions
@@ -771,6 +772,7 @@ static const EventMap event_map[] = {
     {"toggleNotifications", MSG_TOGGLENOTIFICATIONS},
     {"toggleCrossfade", MSG_TOGGLECROSSFADE},
     {"showLyricsPage", MSG_SHOWLYRICSPAGE},
+    {"toggleTranslation", MSG_TOGGLETRANSLATION}, /* kew-ytm */
     {"crossfadequick", MSG_CROSSFADE_QUICK},
     {"crossfademedium", MSG_CROSSFADE_MEDIUM},
     {"crossfadeslow", MSG_CROSSFADE_SLOW},
