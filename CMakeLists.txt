@@ -47,6 +47,25 @@ else()
   message(STATUS "Qt6 Widgets NAO encontrado / not found: GUI desabilitada (stub) / disabled")
 endif()
 
+# PT: chafa opcional: capa de álbum na TUI (library/canvas). Sem chafa, o
+#     kiutube2 compila com um stub que sempre falha em render() (mesma API).
+#     Via pkg-config: os headers do chafa exigem glib (Requires: glib-2.0).
+# EN: Optional chafa: album art in the TUI (library/canvas). Without chafa,
+#     kiutube2 builds with a stub whose render() always fails (same API).
+#     Via pkg-config: chafa headers require glib (Requires: glib-2.0).
+# ES: chafa opcional: carátula en la TUI. Sin chafa, compila con stub.
+# ZH: 可选 chafa：TUI 专辑封面（library/canvas）。无 chafa 时编译同名 stub。
+#     通过 pkg-config：chafa 头文件依赖 glib（Requires: glib-2.0）。
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+  pkg_check_modules(CHafa QUIET IMPORTED_TARGET chafa)
+endif()
+if(CHafa_FOUND)
+  message(STATUS "chafa encontrado / found: capa TUI habilitada / TUI cover enabled")
+else()
+  message(STATUS "chafa NAO encontrado / not found: capa TUI desabilitada (stub) / disabled")
+endif()
+
 # PT: Dependências header-only via FetchContent (pinadas; trocar GIT_TAG por hash
 #     de commit após o primeiro configure — ver docs/CPP20-REWRITE.md).
 # EN: Header-only dependencies via FetchContent (pinned; swap GIT_TAG for a commit
@@ -170,6 +189,7 @@ add_executable(kiutube2
   player/tui/visualizer.cpp
   player/gui/viz_window.cpp
   player/library/cover.cpp
+  player/library/canvas.cpp
   include/nestegg/nestegg.c
   ${pocketfft_SOURCE_DIR}/pocketfft.c)
 
@@ -197,6 +217,18 @@ if(TARGET sdbus-c++)
   if(SYSTEMD_LIBRARY)
     target_link_libraries(kiutube2 PRIVATE ${SYSTEMD_LIBRARY})
   endif()
+endif()
+
+# PT: chafa presente -> capa TUI real; senão, stub. Includes SYSTEM: warnings
+#     de terceiros não quebram o -Werror.
+# EN: chafa present -> real TUI cover; otherwise, stub. SYSTEM includes:
+#     third-party warnings do not break -Werror.
+# ES: chafa presente -> carátula TUI real; si no, stub.
+# ZH: chafa 存在 -> 真实 TUI 封面；否则 stub。SYSTEM includes：第三方警告
+#     不会触发 -Werror。
+if(CHafa_FOUND)
+  target_compile_definitions(kiutube2 PRIVATE KIUTUBE2_WITH_CHAFA)
+  target_link_libraries(kiutube2 PRIVATE PkgConfig::CHafa)
 endif()
 # PT: Código legado (webm.h do kew, nestegg): warnings suprimidos por não
 #     serem nossos para polir; a fronteira C fica no shim.
@@ -264,3 +296,15 @@ add_executable(cover_smoke player/tests/cover_smoke.cpp player/library/cover.cpp
 target_include_directories(cover_smoke PRIVATE player)
 target_link_libraries(cover_smoke PRIVATE kiutube2_deps)
 add_test(NAME cover_smoke COMMAND cover_smoke)
+
+# PT: Smoke test do canvas chafa (BMP de 4 quadrantes, cores, stub).
+# EN: chafa canvas smoke test (4-quadrant BMP, colors, stub).
+# ES: Smoke test del canvas chafa. / ZH: chafa 画布冒烟测试（四象限 BMP）。
+add_executable(canvas_smoke player/tests/canvas_smoke.cpp player/library/canvas.cpp)
+target_include_directories(canvas_smoke PRIVATE player)
+target_link_libraries(canvas_smoke PRIVATE kiutube2_deps)
+if(CHafa_FOUND)
+  target_compile_definitions(canvas_smoke PRIVATE KIUTUBE2_WITH_CHAFA)
+  target_link_libraries(canvas_smoke PRIVATE PkgConfig::CHafa)
+endif()
+add_test(NAME canvas_smoke COMMAND canvas_smoke)

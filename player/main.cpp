@@ -22,6 +22,8 @@
 #include "krt/scheduler.hpp"
 #include "library/fuzzy.hpp"
 #include "library/library.hpp"
+#include "library/canvas.hpp"
+#include "library/cover.hpp"
 #include "net/lrclib.hpp"
 #include "net/translate.hpp"
 #include "net/ytm.hpp"
@@ -203,6 +205,49 @@ std::pair<std::string, std::string> split_artist_title(std::string_view filename
 //     resultados -> descarga+reproducción).
 // ZH: 选择器状态：曲库（Typesense 模糊搜索）或 YTM 搜索（F8：输入 ->
 //     结果 -> 下载并播放）。
+// PT: Codifica um codepoint em UTF-8 (para put_cell com símbolos chafa).
+// EN: Encodes one codepoint as UTF-8 (for put_cell with chafa symbols).
+// ES: Codifica un codepoint en UTF-8. / ZH: 将码点编码为 UTF-8（供 put_cell）。
+std::string utf8_of(unsigned int cp)
+{
+        std::string out;
+        if (cp < 0x80)
+                out += static_cast<char>(cp);
+        else if (cp < 0x800)
+        {
+                out += static_cast<char>(0xc0 | (cp >> 6));
+                out += static_cast<char>(0x80 | (cp & 0x3f));
+        }
+        else if (cp < 0x10000)
+        {
+                out += static_cast<char>(0xe0 | (cp >> 12));
+                out += static_cast<char>(0x80 | ((cp >> 6) & 0x3f));
+                out += static_cast<char>(0x80 | (cp & 0x3f));
+        }
+        else
+        {
+                out += static_cast<char>(0xf0 | (cp >> 18));
+                out += static_cast<char>(0x80 | ((cp >> 12) & 0x3f));
+                out += static_cast<char>(0x80 | ((cp >> 6) & 0x3f));
+                out += static_cast<char>(0x80 | (cp & 0x3f));
+        }
+        return out;
+}
+
+// PT: Título exibido de um caminho de fila: stem do arquivo (a biblioteca
+//     taglib tem tags ricas; a fila só tem o path). Mesma gramática do
+//     split_artist_title, sem cortar o "[id]".
+// EN: Display title of a queue path: file stem (the taglib library has rich
+//     tags; the queue only has the path). Same grammar as split_artist_title
+//     without cutting the "[id]".
+// ZH: 队列路径的显示标题：文件名主干（taglib 曲库才有富标签；队列只有路径）。
+std::string stem_title(std::string_view path)
+{
+        std::string base = std::filesystem::path(path).filename().string();
+        if (const auto dot = base.find_last_of('.'); dot != std::string::npos)
+                base.erase(dot);
+        return base;
+}
 enum class PickerSource
 {
         Library,
@@ -238,6 +283,44 @@ struct LyricsPane
         bool not_found = false;
 };
 
+// PT: View da fila (playlist): snapshot na abertura; Up/Down navegam, Enter
+//     pula (engine.jump_to), ESC fecha. A snapshot congela na abertura para
+//     o cursor não "andar" sozinho quando o YTM baixa algo novo.
+// EN: Queue view (playlist): snapshot on open; Up/Down navigate, Enter jumps
+//     (engine.jump_to), ESC closes. The snapshot freezes on open so the
+//     cursor doesn't drift when YTM downloads something new.
+// ES: Vista de la cola: snapshot al abrir; Up/Down navegan, Enter salta.
+// ZH: 队列视图：打开时取快照；Up/Down 导航，Enter 跳转，ESC 关闭。
+struct PlaylistPane
+{
+        bool active = false;
+        std::vector<std::string> items;
+        std::size_t sel = 0;
+};
+
+// PT: View de detalhe da faixa atual ('i'): metadados + transporte + path.
+// EN: Current-track detail view ('i'): metadata + transport + path.
+// ES: Vista de detalle de la pista actual ('i').
+// ZH: 当前曲目详情视图（'i'）：元数据 + 传输 + 路径。
+struct TrackPane
+{
+        bool active = false;
+};
+
+// PT: Capa chafa na TUI ('c'): renderiza 1x por faixa (cover_for resolve o
+//     arquivo; Canvas decodifica e rasteriza em células coloridas).
+// EN: chafa cover in the TUI ('c'): renders once per track (cover_for
+//     resolves the file; Canvas decodes and rasterizes into colored cells).
+// ES: Carátula chafa en la TUI ('c'): renderiza 1x por pista.
+// ZH: TUI 中的 chafa 封面（'c'）：每曲目渲染一次。
+struct CoverPane
+{
+        bool active = false;
+        std::string rendered_path; // PT: faixa já renderizada / track already rendered / 已渲染曲目
+        std::string image_path;    // PT: imagem usada (vazio = sem capa) / image used (empty = none) / 使用的图像
+        cover::Canvas canvas{24, 12};
+};
+
 struct Ui
 {
         tui::Term term;
@@ -248,6 +331,9 @@ struct Ui
         const std::vector<library::Track> *tracks = nullptr; // PT: preenchido após o scan / set after scan
         Picker picker;
         LyricsPane lyrics;
+        PlaylistPane playlist;
+        TrackPane trackinfo;
+        CoverPane cover;
         viz::Visualizer viz;
         // PT: Janela gráfica (thread própria). O callback roda NO SCHEDULER
         //     (post_function) quando o usuário fecha a janela: alinha o modo.
@@ -303,7 +389,7 @@ struct Ui
                 buf.put(6, 2, "ZH: \xe6\xa8\xa1\xe7\xb3\x8a\xe6\x90\x9c\xe7\xb4\xa2 + \xe6\xad\x8c\xe8\xaf\x8d + \xe5\x8f\xaf\xe8\xa7\x86\xe5\x8c\x96");
                 if (cur.path.empty())
                 {
-                        buf.put(8, 2, "kiutube2 play <arquivo / file / archivo / \xe6\x96\x87\xe4\xbb\xb6> ...   keys: l/g/v");
+                        buf.put(8, 2, "kiutube2 play <arquivo / file / archivo / \xe6\x96\x87\xe4\xbb\xb6> ...   keys: l/g/v/p/i/c");
                         buf.put(9, 2, "key " + last_key);
                 }
                 else
@@ -324,21 +410,33 @@ struct Ui
                 buf.put(11, 2, cfg);
 
                 // PT: Área do visualizador (rows 13..19). settings.visualizer
-                //     = off força o modo Off.
+                //     = off força o modo Off. Capa ativa toma a área (só um
+                //     consumidor de pixels por vez na prática: capa é estática).
                 // EN: Visualizer area (rows 13..19). settings.visualizer = off
-                //     forces Mode::Off.
-                // ES: Área del visualizador (filas 13..19).
-                // ZH: 可视化器区域（第 13..19 行）。settings.visualizer=off
-                //     时强制关闭。
+                //     forces Mode::Off. An active cover takes the area (only
+                //     one pixel consumer at a time in practice: covers are
+                //     static).
+                // ES: Área del visualizador (filas 13..19). La carátula activa
+                //     toma el área.
+                // ZH: 可视化器区域（第 13..19 行）。封面激活时占用该区域。
                 if (!settings.visualizer && viz.mode() != viz::Mode::Off)
                         viz.set_mode(viz::Mode::Off);
-                if (!gui_open && viz.mode() != viz::Mode::Off)
+                if (cover.active)
+                {
+                        ensure_cover(cur);
+                        draw_cover();
+                }
+                else if (!gui_open && viz.mode() != viz::Mode::Off)
                         viz.draw(buf, 13, 2, 7, buf.cols() - 4);
 
                 if (picker.active && (picker.source == PickerSource::Ytm || tracks))
                         draw_picker();
                 if (lyrics.active)
                         draw_lyrics();
+                if (playlist.active)
+                        draw_playlist();
+                if (trackinfo.active)
+                        draw_trackinfo();
                 term.write_segments(buf.flush_diff());
         }
 
@@ -450,6 +548,118 @@ struct Ui
                                 break;
                         rest.remove_prefix(nl + 1);
                 }
+        }
+
+        // PT: Garante a capa da faixa atual renderizada uma única vez por
+        //     troca (cover_for faz I/O em disco cacheado; chafa é CPU-bound).
+        // EN: Ensures the current track's cover rendered exactly once per
+        //     change (cover_for does cached disk I/O; chafa is CPU-bound).
+        // ZH: 保证当前曲目封面每首只渲染一次（cover_for 走磁盘缓存；chafa 为
+        //     CPU 密集）。
+        void ensure_cover(const audio::TrackInfo &cur)
+        {
+                if (cover.rendered_path == cur.path)
+                        return;
+                cover.rendered_path = cur.path;
+                cover.image_path.clear();
+                if (cur.path.empty())
+                        return;
+                if (auto img = library::cover_for(cur.path))
+                {
+                        cover.image_path = *img;
+                        // PT: render falhou (imagem ruim): mostra "sem capa".
+                        // EN: render failed (bad image): show "no cover".
+                        // ZH: 渲染失败（图像损坏）：显示"无封面"。
+                        if (!cover.canvas.render(*img))
+                                cover.image_path.clear();
+                }
+        }
+
+        // PT: Capa em células coloridas à direita (rows 13.., cols do fim).
+        // EN: Cover as colored cells on the right (rows 13.., trailing cols).
+        // ES: Carátula en celdas coloreadas a la derecha.
+        // ZH: 右侧单元格彩色封面（第 13 行起、靠右列）。
+        void draw_cover()
+        {
+                if (cover.image_path.empty())
+                {
+                        buf.put(13, 2, "sem capa / no cover / sin caratula / 无封面  (c: fechar / close / cerrar / 关闭)");
+                        return;
+                }
+                const int x0 = std::max(0, buf.cols() - cover.canvas.cols() - 2);
+                for (int y = 0; y < cover.canvas.rows(); ++y)
+                {
+                        for (int x = 0; x < cover.canvas.cols(); ++x)
+                        {
+                                const auto c = cover.canvas.at(x, y);
+                                tui::Color fg;
+                                fg.set = c.fg_set;
+                                fg.rgb = {c.r, c.g, c.b};
+                                tui::Color bg;
+                                bg.set = c.bg_set;
+                                bg.rgb = {c.br, c.bg, c.bb};
+                                buf.put_cell(13 + y, x0 + x, utf8_of(c.ch), fg, bg);
+                        }
+                }
+        }
+
+        // PT: Playlist da fila: ">>" na faixa atual, ">" no item selecionado;
+        //     Enter pula (jump_to), ESC fecha. Snapshot aberta na ativação.
+        // EN: Queue playlist: ">>" marks the current track, ">" the selection;
+        //     Enter jumps (jump_to), ESC closes. Snapshot taken on activation.
+        // ZH: 队列播放列表：">>" 当前曲目，">" 选中项；Enter 跳转，ESC 关闭。
+        void draw_playlist()
+        {
+                buf.put(13, 2, "QUEUE / playlist / cola / 播放列表  (" +
+                                   std::to_string(playlist.items.size()) + ")  Enter: pular / jump / saltar / 跳转");
+                const auto cur = engine.current();
+                std::size_t row = 14;
+                if (!cur.path.empty())
+                {
+                        buf.put(static_cast<int>(row), 2, ">> " + cur.title + "  (<)");
+                        ++row;
+                }
+                const std::size_t max_rows = 12;
+                if (playlist.sel >= playlist.items.size())
+                        playlist.sel = playlist.items.empty() ? 0 : playlist.items.size() - 1;
+                const std::size_t start = playlist.sel >= max_rows ? playlist.sel - max_rows + 1 : 0;
+                for (std::size_t r = 0; r < max_rows && start + r < playlist.items.size(); ++r)
+                {
+                        std::string line = (start + r == playlist.sel ? "> " : "  ") +
+                                           stem_title(playlist.items[start + r]);
+                        buf.put(static_cast<int>(row + r), 2, line);
+                }
+                if (playlist.items.empty())
+                        buf.put(static_cast<int>(row), 2,
+                                "(fila vazia / queue empty / cola vacia / 队列空)");
+        }
+
+        // PT: Detalhe da faixa: artista/título (gramática YTM), duração,
+        //     posição, volume, path completo e tamanho da fila.
+        // EN: Track detail: artist/title (YTM grammar), duration, position,
+        //     volume, full path and queue size.
+        // ES: Detalle de la pista: artista/título, duración, posición, path.
+        // ZH: 曲目详情：艺人/标题、时长、位置、音量、完整路径、队列长度。
+        void draw_trackinfo()
+        {
+                const auto cur = engine.current();
+                if (cur.path.empty())
+                {
+                        buf.put(13, 2, "nada tocando / nothing playing / nada sonando / 没有在播");
+                        return;
+                }
+                const auto [artist, title] = split_artist_title(cur.title);
+                buf.put(13, 2, "FAIXA / track / pista / 曲目");
+                buf.put(14, 2, "titulo / title / titulo / 标题: " + title);
+                buf.put(15, 2, "artista / artist / artista / 艺人: " + (artist.empty() ? "-" : artist));
+                buf.put(16, 2, "dur / length / duracion / 时长: " + mmss(cur.duration) +
+                                   "   pos / position / posicion / 位置: " + mmss(engine.position()));
+                buf.put(17, 2, std::string("estado / state / estado / 状态: ") +
+                                   (engine.is_playing() ? "playing / 播放中" : "paused / 已暂停") +
+                                   "   vol: " +
+                                   std::to_string(static_cast<int>(engine.volume() * 100.0f + 0.5f)) + "%");
+                buf.put(18, 2, "fila / queue / cola / 队列: " + std::to_string(engine.queue_size()));
+                buf.put(19, 2, "path: " + cur.path);
         }
 };
 
@@ -588,7 +798,7 @@ krt::Task<void> fetch_lyrics_task(std::string artist, std::string title, int dur
 
 krt::Task<void> app_main(audio::Engine &engine, Ui &ui, std::atomic<bool> &alive)
 {
-        krt::log::info("boot: kiutube2 M3");
+        krt::log::info("boot: kiutube2 M4");
 
         app::Settings settings;
         app::BindingMap map;
@@ -748,9 +958,50 @@ krt::Task<void> app_main(audio::Engine &engine, Ui &ui, std::atomic<bool> &alive
                                 continue;
                         }
                 }
+                // PT: Modo playlist: teclas crúas navegam a snapshot; Enter pula
+                //     para o item (jump_to), ESC fecha.
+                // EN: Playlist mode: raw keys navigate the snapshot; Enter jumps
+                //     to the item (jump_to), ESC closes.
+                // ES: Modo playlist: teclas crudas navegan; Enter salta, ESC cierra.
+                // ZH: 播放列表模式：原始按键导航快照；Enter 跳转，ESC 关闭。
+                if (ui.playlist.active)
+                {
+                        bool handled = true;
+                        if (ev.key == tui::Key::Esc)
+                                ui.playlist = PlaylistPane{};
+                        else if (ev.key == tui::Key::Up && ui.playlist.sel > 0)
+                                --ui.playlist.sel;
+                        else if (ev.key == tui::Key::Down && ui.playlist.sel + 1 < ui.playlist.items.size())
+                                ++ui.playlist.sel;
+                        else if (ev.key == tui::Key::Enter && !ui.playlist.items.empty() &&
+                                 ui.playlist.sel < ui.playlist.items.size())
+                        {
+                                engine.jump_to(ui.playlist.sel);
+                                ui.playlist = PlaylistPane{};
+                        }
+                        else
+                                handled = false;
+                        if (handled)
+                        {
+                                ui.draw();
+                                continue;
+                        }
+                }
                 if (ui.lyrics.active && ev.key == tui::Key::Esc)
                 {
                         ui.lyrics.active = false;
+                        ui.draw();
+                        continue;
+                }
+                if (ui.trackinfo.active && ev.key == tui::Key::Esc)
+                {
+                        ui.trackinfo = TrackPane{};
+                        ui.draw();
+                        continue;
+                }
+                if (ui.cover.active && ev.key == tui::Key::Esc)
+                {
+                        ui.cover.active = false;
                         ui.draw();
                         continue;
                 }
@@ -853,6 +1104,34 @@ krt::Task<void> app_main(audio::Engine &engine, Ui &ui, std::atomic<bool> &alive
                                         krt::log::info("viz: modo / mode / modo / 模式: {}",
                                                        static_cast<int>(ui.viz.mode()));
                                 }
+                                break;
+                        case app::Event::Playlist:
+                                // PT: 'p': abre a playlist da fila (snapshot).
+                                // EN: 'p': opens the queue playlist (snapshot).
+                                // ES: 'p': abre la playlist de la cola.
+                                // ZH: 'p'：打开队列播放列表（快照）。
+                                ui.playlist.active = !ui.playlist.active;
+                                if (ui.playlist.active)
+                                {
+                                        ui.playlist.items = engine.queue_snapshot();
+                                        ui.playlist.sel = 0;
+                                }
+                                else
+                                        ui.playlist = PlaylistPane{};
+                                break;
+                        case app::Event::TrackInfo:
+                                // PT: 'i': detalhe da faixa atual.
+                                // EN: 'i': current track detail.
+                                // ES: 'i': detalle de la pista actual.
+                                // ZH: 'i'：当前曲目详情。
+                                ui.trackinfo.active = !ui.trackinfo.active;
+                                break;
+                        case app::Event::ToggleCover:
+                                // PT: 'c': capa chafa na TUI (1 render por faixa).
+                                // EN: 'c': chafa cover in the TUI (1 render per track).
+                                // ES: 'c': carátula chafa en la TUI.
+                                // ZH: 'c'：TUI chafa 封面（每曲目渲染一次）。
+                                ui.cover.active = !ui.cover.active;
                                 break;
                         case app::Event::ToggleTranslation:
                                 // PT: F9 alterna letra original/traduzida na view

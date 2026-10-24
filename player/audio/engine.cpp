@@ -354,6 +354,32 @@ std::size_t Engine::queue_size() const
         return impl_->queue.size();
 }
 
+std::vector<std::string> Engine::queue_snapshot() const
+{
+        std::lock_guard lk(impl_->m);
+        return {impl_->queue.begin(), impl_->queue.end()};
+}
+
+bool Engine::jump_to(std::size_t n)
+{
+        {
+                std::lock_guard lk(impl_->m);
+                if (n >= impl_->queue.size())
+                        return false;
+                while (n-- > 0)
+                        impl_->queue.pop_front();
+        }
+        // PT: Mesmo jogo do next(): drena ring/decoder; o feeder abre a nova
+        //     frente. next() re-trava o mutex — seguro (mutex não recursivo,
+        //     mas o lock acima já foi liberado).
+        // EN: Same as next(): drains ring/decoder; the feeder opens the new
+        //     front. next() re-locks the mutex — safe (the lock above is out
+        //     of scope).
+        // ZH: 与 next() 相同：排空 ring/decoder；feeder 打开新的队首。上方
+        //     的锁已释放，next() 重新加锁是安全的。
+        return next();
+}
+
 bool Engine::play()
 {
         if (!impl_->device_ok)

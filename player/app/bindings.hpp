@@ -83,6 +83,16 @@ inline constexpr Binding kDefaultBindings[] = {
     // ZH: 'v' 循环切换可视化器（spectrum -> spectrogram -> off）。
     {{tui::Key::Char, 'v', tui::MOD_NONE}, Event::CycleViz},
     {{tui::Key::Char, 'V', tui::MOD_NONE}, Event::CycleViz},
+    // PT: Views M4: 'p' fila (playlist), 'i' faixa atual, 'c' capa chafa.
+    // EN: M4 views: 'p' queue (playlist), 'i' current track, 'c' chafa cover.
+    // ES: Vistas M4: 'p' cola, 'i' pista actual, 'c' carátula chafa.
+    // ZH: M4 视图：'p' 队列，'i' 当前曲目，'c' chafa 封面。
+    {{tui::Key::Char, 'p', tui::MOD_NONE}, Event::Playlist},
+    {{tui::Key::Char, 'P', tui::MOD_NONE}, Event::Playlist},
+    {{tui::Key::Char, 'i', tui::MOD_NONE}, Event::TrackInfo},
+    {{tui::Key::Char, 'I', tui::MOD_NONE}, Event::TrackInfo},
+    {{tui::Key::Char, 'c', tui::MOD_NONE}, Event::ToggleCover},
+    {{tui::Key::Char, 'C', tui::MOD_NONE}, Event::ToggleCover},
 };
 
 // PT: Parse de nome de tecla (case-insensitive): "x", "F8", "enter", "ctrl-x",

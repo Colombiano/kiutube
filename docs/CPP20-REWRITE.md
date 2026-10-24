@@ -20,7 +20,27 @@ Bibliotecas C maduras (miniaudio, decoders, demuxers, libcurl, chafa, PUC Lua)
 não são reescritas — são encapsuladas atrás de wrappers RAII com
 `extern "C"`.
 
-### Estado atual: M0 ✅ M1 ✅ M2 ✅ M3 ✅
+### Estado actual: M0 ✅ M1 ✅ M2 ✅ M3 ✅ M4 ✅
+
+**M4 — vistas completas + carátula TUI**: vista de playlist de la cola
+('p': snapshot al abrir — '>>' en la pista actual, Up/Down navegan,
+Enter salta vía `engine.jump_to`, ESC cierra); vista de detalle de la
+pista actual ('i'); carátula en la TUI ('c') vía `cover::Canvas` —
+wrapper RAII sobre chafa (modo símbolo/truecolor, celdas por
+`chafa_canvas_get_char_at`/`get_colors_at` 0x00RRGGBB) + stb_image
+vendored; 1 render por pista. Sin chafa, compila con stub de misma API. M4 ✅
+
+**M4 — views completas + capa TUI**: view de playlist da fila ('p':
+snapshot na abertura — '>>' na faixa atual, Up/Down navegam, Enter pula
+via `engine.jump_to`, ESC fecha); view de detalhe da faixa ('i': título,
+artista (gramática YTM), duração/posição, estado, volume, path, fila);
+capa de álbum na TUI ('c') via `cover::Canvas` — wrapper RAII sobre chafa
+(modo símbolo/truecolor, células por `chafa_canvas_get_char_at`/
+`get_colors_at` 0x00RRGGBB) + stb_image vendored; 1 render por faixa,
+`cover_for` resolve sidecar/taglib. A capa toma a área do visualizador;
+sem chafa no sistema, compila com stub (mesma API). Gate PTY: 'p' →
+navegar → Enter pula; 'i' mostra path; 'c' emite glifos de bloco com SGR
+truecolor.
 
 **M3a — caches YTM**: `AnyDecoder` (apagamento de tipo sobre o concept, vtable
 estática) com cadeia de adapters na engine (miniaudio → webm); demux
@@ -155,7 +175,7 @@ Todo comentário, documento, string de UI e commit segue PT → EN → ES → ZH
 | M1 ✅ | Settings tipadas (descritores constexpr), sol2 Lua config, bindings magic_enum, logging |
 | M2 ✅ | audio::Engine + Decoder concept + play/pause/seek/gapless + gate pactl |
 | M3 ✅ | WebmDecoder (caches YTM), library taglib + fuzzy Typesense + picker, letras LRCLIB |
-| M4 | Views completas (playlist/faixa), ~~visualizador~~ ✅, capa chafa, F8 YTM, CLI --ytm, migra ytm p/ net |
+| M4 ✅ | Views completas (playlist ✅/faixa ✅), ~~visualizador~~ ✅, capa chafa ✅, F8 YTM ✅, CLI --ytm ✅, migra ytm p/ net ✅ |
 | M5 | MPRIS sdbus-c++, apaga src/ C, renomeia binário |
 
 ### Como buildar e testar
@@ -193,7 +213,19 @@ Boundary philosophy: **own your code, wrap what you don't need to own**.
 Mature C libraries (miniaudio, decoders, demuxers, libcurl, chafa, PUC Lua)
 are not rewritten — they are wrapped behind RAII `extern "C"` interfaces.
 
-### Current state: M0 ✅ M1 ✅ M2 ✅ M3 ✅
+### Current state: M0 ✅ M1 ✅ M2 ✅ M3 ✅ M4 ✅
+
+**M4 — full views + TUI cover**: queue playlist view ('p': snapshot on
+open — '>>' on the current track, Up/Down navigate, Enter jumps through
+`engine.jump_to`, ESC closes); current-track detail view ('i': title,
+artist (YTM grammar), duration/position, state, volume, path, queue);
+album art in the TUI ('c') via `cover::Canvas` — an RAII wrapper over
+chafa (symbol/truecolor mode, cells through
+`chafa_canvas_get_char_at`/`get_colors_at` 0x00RRGGBB) + vendored
+stb_image; 1 render per track, `cover_for` resolves sidecar/taglib. The
+cover takes the visualizer area; without chafa on the system it builds
+with a same-API stub. PTY gate: 'p' -> navigate -> Enter jumps; 'i'
+shows the path; 'c' emits block glyphs with truecolor SGR.
 
 **M3a — YTM caches**: `AnyDecoder` (type erasure over the concept, static
 vtable) with an adapter chain in the engine (miniaudio → webm); nestegg+opus/
@@ -327,7 +359,7 @@ Every comment, document, UI string and commit follows PT → EN → ES → ZH.
 | M1 ✅ | Typed settings (constexpr descriptors), sol2 Lua config, magic_enum bindings, logging |
 | M2 ✅ | audio::Engine + Decoder concept + play/pause/seek/gapless + pactl gate |
 | M3 ✅ | WebmDecoder (YTM caches), taglib library + Typesense fuzzy + picker, LRCLIB lyrics |
-| M4 | Full views (playlist/track), ~~visualizer~~ ✅, chafa cover, F8 YTM, --ytm CLI, ytm migration to net |
+| M4 ✅ | Full views (playlist ✅/track ✅), ~~visualizer~~ ✅, chafa cover ✅, F8 YTM ✅, --ytm CLI ✅, ytm migration to net ✅ |
 | M5 | sdbus-c++ MPRIS, delete legacy src/ C, rename binary |
 
 ### Build and test
@@ -496,7 +528,7 @@ Todo comentario, documento, string de UI y commit sigue PT → EN → ES → ZH.
 | M1 ✅ | Settings tipadas (descriptores constexpr), sol2 Lua config, bindings magic_enum, logging |
 | M2 ✅ | audio::Engine + Decoder concept + play/pause/seek/gapless + gate pactl |
 | M3 ✅ | WebmDecoder (cachés YTM), library taglib + fuzzy Typesense + picker, letras LRCLIB |
-| M4 | Views completas, visualizador pocketfft, capa chafa, F8 YTM, CLI --ytm, migración ytm a net |
+| M4 ✅ | Views completas ✅, visualizador pocketfft ✅, capa chafa ✅, F8 YTM ✅, CLI --ytm ✅, migración ytm a net ✅ |
 | M5 | MPRIS sdbus-c++, se borra src/ C, renombra binario |
 
 ### Cómo compilar y probar
@@ -532,7 +564,14 @@ intérprete Lua en C++; soporte Windows/SMTC hasta nuevo aviso.
 库（miniaudio、解码器、解封装器、libcurl、chafa、PUC Lua）不做重写
 —— 而是通过 RAII + `extern "C"` 包装。
 
-### 当前状态：M0 ✅ M1 ✅ M2 ✅ M3 ✅
+### 当前状态：M0 ✅ M1 ✅ M2 ✅ M3 ✅ M4 ✅
+
+**M4 —— 完整视图 + TUI 封面**：队列播放列表视图（'p'：打开时取快照
+——">>" 标记当前曲目，Up/Down 导航，Enter 经 `engine.jump_to` 跳转，
+ESC 关闭）；当前曲目详情视图（'i'）；TUI 专辑封面（'c'）经
+`cover::Canvas` —— 基于 chafa 的 RAII 包装（符号/truecolor 模式，逐格
+取自 `chafa_canvas_get_char_at`/`get_colors_at`，颜色打包 0x00RRGGBB）
++ vendored stb_image；每曲目渲染一次。无 chafa 时编译同名 stub。
 
 **M3a —— YTM 缓存**：`AnyDecoder`（基于 concept 的类型擦除，静态 vtable），
 引擎按链式尝试适配器（miniaudio → webm）；nestegg+opus/vorbis 解封装经
@@ -660,7 +699,7 @@ UI 组件的 CRTP、`std::format`。
 | M1 ✅ | 类型化 settings（constexpr 描述符）、sol2 Lua 配置、magic_enum 绑定、日志 |
 | M2 ✅ | audio::Engine + Decoder concept + play/pause/seek/gapless + pactl 门槛 |
 | M3 ✅ | WebmDecoder（YTM 缓存）、taglib 曲库 + Typesense 模糊搜索 + 选择器、LRCLIB 歌词 |
-| M4 | 完整视图、~~可视化器~~ ✅、chafa 封面、F8 YTM、--ytm CLI、ytm 迁移到 net |
+| M4 ✅ | 完整视图 ✅、~~可视化器~~ ✅、chafa 封面 ✅、F8 YTM ✅、--ytm CLI ✅、ytm 迁移到 net ✅ |
 | M5 | sdbus-c++ MPRIS、删除旧 src/ C、重命名二进制 |
 
 ### 构建与测试

@@ -43,7 +43,10 @@ enum class Event : std::uint16_t
         VolDown,
         Library,
         Lyrics,
-        CycleViz
+        CycleViz,
+        Playlist,    // PT: view da fila (p): lista, navega, Enter pula / queue view: list, navigate, Enter jumps / ZH: 队列视图
+        ToggleCover, // PT: capa chafa na TUI (c) / chafa cover in the TUI / ZH: TUI 封面开关
+        TrackInfo    // PT: detalhes da faixa (i) / track detail view / ZH: 曲目详情
 };
 
 struct Settings

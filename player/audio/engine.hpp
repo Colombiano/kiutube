@@ -25,6 +25,7 @@
 #include <cstddef>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace audio
 {
@@ -41,6 +42,16 @@ class Engine
         // ES: Cola y transporte (thread-safe). / ZH: 队列与传输控制（线程安全）。
         bool enqueue(const std::string &path);
         [[nodiscard]] std::size_t queue_size() const;
+        // PT: Caminhos na fila ainda não abertos (cópia sob lock). / EN: Paths
+        //     in the queue not yet opened (copied under lock). ES: Copia segura
+        //     de la cola. / ZH: 尚未打开的队列路径（锁内拷贝）。
+        [[nodiscard]] std::vector<std::string> queue_snapshot() const;
+        // PT: Pula n itens da fila e descarta a faixa atual (como next()).
+        //     Índice 0 = a próxima a tocar. false se n >= tamanho da fila.
+        // EN: Drops n queue items and discards the current track (like
+        //     next()). Index 0 = the upcoming one. false if n >= queue size.
+        // ZH: 跳过 n 个队列项并丢弃当前曲目（同 next()）。n 越界返回 false。
+        bool jump_to(std::size_t n);
         bool play();                                        // inicia/retoma o device
         bool pause();
         bool next();                                        // pula faixa atual (draina o ring)
