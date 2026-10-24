@@ -23,6 +23,7 @@
 #include "library/fuzzy.hpp"
 #include "library/library.hpp"
 #include "net/lrclib.hpp"
+#include "net/translate.hpp"
 #include "net/ytm.hpp"
 #include "script/lua_state.hpp"
 #include "tui/cell_buffer.hpp"
@@ -221,12 +222,17 @@ struct Picker
         std::size_t sel = 0;
 };
 
-// PT: Estado da view de letras. / EN: Lyrics view state.
-// ES: Estado de la vista de letras. / ZH: 歌词视图状态。
+// PT: Estado da view de letras: original + tradução (F9 alterna).
+// EN: Lyrics view state: original + translation (F9 toggles).
+// ES: Estado de la vista de letras: original + traducción (F9 alterna).
+// ZH: 歌词视图状态：原文 + 译文（F9 切换）。
 struct LyricsPane
 {
         bool active = false;
         std::string text;
+        std::string translated;
+        bool has_translation = false;
+        bool show_translation = false;
         bool loading = false;
         bool not_found = false;
 };
@@ -412,7 +418,12 @@ struct Ui
                 }
                 std::size_t row = 13;
                 std::size_t count = 0;
-                std::string_view rest(lyrics.text);
+                // PT: F9 alterna original <-> traduzida (quando há tradução).
+                // EN: F9 toggles original <-> translated (when a translation exists).
+                // ES: F9 alterna original <-> traducida. / ZH: F9 切换原文 <-> 译文。
+                const std::string &src_text =
+                    (lyrics.show_translation && lyrics.has_translation) ? lyrics.translated : lyrics.text;
+                std::string_view rest(src_text);
                 while (!rest.empty() && count < 10)
                 {
                         const auto nl = rest.find('\n');
@@ -547,16 +558,31 @@ krt::Task<void> ytm_download_task(net::YtmResult track, audio::Engine &engine, P
 // ZH: 后台获取歌词（同步网络置于 offload 中）并填充面板 —— UI 时钟在到达后
 //     重绘。
 krt::Task<void> fetch_lyrics_task(std::string artist, std::string title, int duration_seconds,
-                                  LyricsPane &pane)
+                                  LyricsPane &pane, app::Settings &settings)
 {
         auto lrc = co_await krt::offload([a = std::move(artist), t = std::move(title), duration_seconds] {
                 return net::fetch_lyrics(a, t, duration_seconds);
         });
-        pane.loading = false;
         if (lrc.has_value())
+        {
                 pane.text = std::move(*lrc);
+                // PT: tradução em cadeia (Google -> MyMemory) quando habilitada.
+                // EN: chained translation (Google -> MyMemory) when enabled.
+                // ES: traducción en cadena cuando está habilitada.
+                // ZH: 启用时进行链式翻译（Google -> MyMemory）。
+                if (settings.translation)
+                {
+                        auto tr = co_await krt::offload([&] { return net::translate_to(pane.text, "pt"); });
+                        if (tr.has_value())
+                        {
+                                pane.translated = std::move(*tr);
+                                pane.has_translation = true;
+                        }
+                }
+        }
         else
                 pane.not_found = true;
+        pane.loading = false;
 }
 
 krt::Task<void> app_main(audio::Engine &engine, Ui &ui, std::atomic<bool> &alive)
@@ -777,7 +803,7 @@ krt::Task<void> app_main(audio::Engine &engine, Ui &ui, std::atomic<bool> &alive
                                         const int dur = static_cast<int>(
                                             std::chrono::duration_cast<std::chrono::seconds>(cur.duration)
                                                 .count());
-                                        bg_tasks.push_back(fetch_lyrics_task(artist, title, dur, ui.lyrics));
+                                        bg_tasks.push_back(fetch_lyrics_task(artist, title, dur, ui.lyrics, settings));
                                         bg_tasks.back().start();
                                 }
                                 break;
@@ -825,6 +851,20 @@ krt::Task<void> app_main(audio::Engine &engine, Ui &ui, std::atomic<bool> &alive
                                         ui.vizwin.set_mode(ui.viz.mode());
                                         krt::log::info("viz: modo / mode / modo / 模式: {}",
                                                        static_cast<int>(ui.viz.mode()));
+                                }
+                                break;
+                        case app::Event::ToggleTranslation:
+                                // PT: F9 alterna letra original/traduzida na view
+                                //     de letras (se a tradução chegou).
+                                // EN: F9 toggles original/translated lyrics in the
+                                //     lyrics view (if the translation arrived).
+                                // ES: F9 alterna letra original/traducida.
+                                // ZH: F9 在歌词视图中切换原文/译文（若译文已到）。
+                                if (ui.lyrics.active && ui.lyrics.has_translation)
+                                {
+                                        ui.lyrics.show_translation = !ui.lyrics.show_translation;
+                                        krt::log::info("lyrics: traducao / translation / traduccion / 译文: {}",
+                                                       ui.lyrics.show_translation ? "on" : "off");
                                 }
                                 break;
                         default:

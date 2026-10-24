@@ -52,6 +52,7 @@ struct Settings
         int volume = 100;           // kewrc: volume=
         bool shuffle = false;       // kewrc: shuffle=
         bool visualizer = true;     // kewrc: visualizer=
+        bool translation = true;    // PT: traduzir letras p/ PT (F9 alterna) / translate lyrics (F9 toggles) / 歌词翻译（F9 切换）
 };
 
 // PT: Descritor tipado: nome de config + ponteiro-para-membro.
@@ -78,6 +79,7 @@ inline constexpr auto kSettingsDescs = std::tuple{
     SettingDesc<int>{.name = "volume", .member = &Settings::volume},
     SettingDesc<bool>{.name = "shuffle", .member = &Settings::shuffle},
     SettingDesc<bool>{.name = "visualizer", .member = &Settings::visualizer},
+    SettingDesc<bool>{.name = "translation", .member = &Settings::translation},
 };
 
 // PT: Aplica F(desc) para cada descritor em compile-time.

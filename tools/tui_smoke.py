@@ -56,6 +56,19 @@ def pump(master, out, duration):
     return True
 
 
+def decode_arg(value):
+    # PT: decodifica escapes (\x1b[.., \xE2\x96\x80) só quando há backslash;
+    #     texto UTF-8 comum passa intacto. Cadeia: latin-1 -> unicode_escape
+    #     -> latin-1 -> utf-8.
+    # EN: decodes escapes only when a backslash is present; plain UTF-8
+    #     text passes through untouched.
+    # ES: decodifica escapes solo cuando hay backslash.
+    # ZH: 仅在含反斜杠时解码转义；普通 UTF-8 文本原样通过。
+    if "\\" not in value:
+        return value
+    return value.encode("latin-1").decode("unicode_escape").encode("latin-1").decode("utf-8", "replace")
+
+
 def main():
     # PT: parsing manual em ORDEM: --expect/--send/--sh executam na sequência
     #     em que aparecem na linha de comando (zip por índice embaralhava o
@@ -78,22 +91,12 @@ def main():
     while i < len(argv):
         a = argv[i]
         if a == "--expect":
-            # PT: decodifica escapes (\x1b[.., \xE2\x96\x80) para comparar
-            #     com o stream: latin-1 -> unicode_escape -> latin-1 -> utf-8.
-            # EN: decodes escapes for stream comparison: latin-1 ->
-            #     unicode_escape -> latin-1 -> utf-8.
-            # ES: decodifica escapes para comparar con el stream.
-            # ZH: 解码转义以比较输出流：latin-1 -> unicode_escape -> latin-1
-            #     -> utf-8。
-            steps.append(("expect", argv[i + 1].encode("latin-1").decode("unicode_escape")
-                          .encode("latin-1").decode("utf-8", "replace"))); i += 2
+            steps.append(("expect", decode_arg(argv[i + 1]))); i += 2
         elif a == "--send":
-            # PT: mesma cadeia de decodificação do --expect (escapes -> bytes).
-            # EN: same decode chain as --expect (escapes -> bytes).
-            # ES: misma cadena de decodificación que --expect.
-            # ZH: 与 --expect 相同的解码链（转义 -> 字节）。
-            steps.append(("send", argv[i + 1].encode("latin-1").decode("unicode_escape")
-                          .encode("latin-1"))); i += 2
+            # PT: envio chega como bytes decodificados (escapes -> bytes).
+            # EN: arrives as decoded bytes (escapes -> bytes).
+            # ZH: 以解码后的字节到达（转义 -> 字节）。
+            steps.append(("send", decode_arg(argv[i + 1]).encode("latin-1"))); i += 2
         elif a == "--sh":
             steps.append(("sh", argv[i + 1])); i += 2
         elif a == "--expect-exit":
