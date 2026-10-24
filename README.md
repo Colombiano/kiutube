@@ -1,5 +1,15 @@
 # kiutube
 
+![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=c%2B%2B&logoColor=white)
+![CMake](https://img.shields.io/badge/CMake-064F8C?logo=cmake&logoColor=white)
+![Lua 5.4](https://img.shields.io/badge/Lua-5.4-2C2D72?logo=lua&logoColor=white)
+![Qt 6](https://img.shields.io/badge/Qt-6-41CD52?logo=qt&logoColor=white)
+![YouTube Music](https://img.shields.io/badge/YouTube%20Music-yt--dlp-FF0033?logo=youtubemusic&logoColor=white)
+![MPRIS](https://img.shields.io/badge/MPRIS-D--Bus-4C8BF5)
+![Linux](https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black)
+![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-blue.svg)
+![CI](https://github.com/Colombiano/kiutube/actions/workflows/ubuntu.yml/badge.svg)
+
 **[Português](#português) · [English](#english) · [Español](#español) · [中文](#中文)**
 
 > Fork do [kew](https://github.com/ravachol/kew) (player de música para
