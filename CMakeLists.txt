@@ -156,6 +156,7 @@ add_executable(kiutube2
   player/tui/term.cpp
   player/tui/visualizer.cpp
   player/gui/viz_window.cpp
+  player/library/cover.cpp
   include/nestegg/nestegg.c
   ${pocketfft_SOURCE_DIR}/pocketfft.c)
 
@@ -229,3 +230,11 @@ add_executable(viz_smoke player/tests/viz_smoke.cpp player/tui/visualizer.cpp ${
 target_include_directories(viz_smoke PRIVATE player ${pocketfft_SOURCE_DIR})
 target_link_libraries(viz_smoke PRIVATE kiutube2_deps)
 add_test(NAME viz_smoke COMMAND viz_smoke)
+
+# PT: Smoke test de capa (sidecar de thumb, negativos).
+# EN: Cover smoke test (thumbnail sidecar, negatives).
+# ES: Smoke test de carátula. / ZH: 封面冒烟测试（sidecar 缩略图、负路径）。
+add_executable(cover_smoke player/tests/cover_smoke.cpp player/library/cover.cpp)
+target_include_directories(cover_smoke PRIVATE player)
+target_link_libraries(cover_smoke PRIVATE kiutube2_deps)
+add_test(NAME cover_smoke COMMAND cover_smoke)

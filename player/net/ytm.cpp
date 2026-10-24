@@ -149,16 +149,17 @@ std::optional<std::string> ytm_download(const std::string &video_id, const std::
                 krt::log::warn("ytm: dir falhou / dir failed / dir falló / 目录失败: {}", dest_base);
                 return std::nullopt;
         }
-        // PT: -o dest_base.%(ext)s: o yt-dlp escolhe a extensão real; o
+        // PT: -o dest_base.%(ext)s: o yt-dlp escolhe a extensão real;
         //     after_move:filepath devolve o caminho FINAL pós-processamento.
+        //     --write-thumbnail: grava o sidecar base.<ext> que a capa da
+        //     janela gráfica (library::cover_for) procura primeiro.
         // EN: -o dest_base.%(ext)s: yt-dlp picks the real extension;
         //     after_move:filepath returns the FINAL post-processing path.
-        // ES: -o dest_base.%(ext)s: el yt-dlp elige la extensión real.
-        // ZH: -o dest_base.%(ext)s：扩展名由 yt-dlp 决定；
-        //     after_move:filepath 返回后处理后的最终路径。
+        //     --write-thumbnail: writes the base.<ext> sidecar that the GUI
+        //     cover (library::cover_for) looks for first.
         const std::string url = "https://www.youtube.com/watch?v=" + video_id;
         const std::string cmd = ytdlp_path() + " -f bestaudio/best --no-playlist --no-warnings "
-                                "--ignore-errors --print after_move:filepath -o " +
+                                "--ignore-errors --write-thumbnail --print after_move:filepath -o " +
                                 shell_quote(dest_base + ".%(ext)s") + " " + shell_quote(url) + " 2>/dev/null";
         const std::string out = run_capture(cmd);
         std::size_t end = out.find('\n');

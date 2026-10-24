@@ -24,12 +24,16 @@
 #include "audio/engine.hpp"
 #include "krt/log.hpp"
 #include "krt/scheduler.hpp"
+#include "library/cover.hpp"
 #include "tui/color.hpp"
 
 #ifdef KIUTUBE2_WITH_QT
 
 #include <QApplication>
+#include <QHBoxLayout>
+#include <QLabel>
 #include <QMainWindow>
+#include <QPixmap>
 #include <QStackedWidget>
 #include <QTimer>
 
@@ -160,10 +164,24 @@ void run_gui(audio::Engine &engine, Shared &sh, std::function<void()> on_closed)
         color_scale->axis()->setLabel("PSD (dB)");
         color_map->setColorScale(color_scale);
 
+        // PT: capa à esquerda + páginas à direita.
+        // EN: cover on the left + pages on the right.
+        // ES: carátula a la izquierda + páginas a la derecha.
+        // ZH: 左侧封面 + 右侧页面。
+        auto *central = new QWidget;
+        auto *layout = new QHBoxLayout(central);
+        layout->setContentsMargins(8, 8, 8, 8);
+        auto *cover = new QLabel;
+        cover->setFixedSize(220, 220);
+        cover->setAlignment(Qt::AlignCenter);
+        cover->setStyleSheet("background: #1a1a1a; color: #888;");
+        cover->setText("kiutube2");
+        layout->addWidget(cover);
         auto *stack = new QStackedWidget;
         stack->addWidget(spectrum);
         stack->addWidget(sono);
-        win->setCentralWidget(stack);
+        layout->addWidget(stack, 1);
+        win->setCentralWidget(central);
         win->show(); // PT: sem isso exec() roda sem janela e close() falha / without it exec runs windowless and close() crashes
 
         // ---- Estado rolling ----
@@ -171,6 +189,7 @@ void run_gui(audio::Engine &engine, Shared &sh, std::function<void()> on_closed)
         std::vector<double> peaks(viz::Visualizer::kBandCount, kSpecDbMin);
         std::vector<double> keys(viz::Visualizer::kBandCount);
         std::vector<double> vals(viz::Visualizer::kBandCount);
+        std::string last_cover_track;
         for (int b = 0; b < viz::Visualizer::kBandCount; ++b)
                 keys[b] = std::sqrt(viz::Visualizer::band_edge(b) * viz::Visualizer::band_edge(b + 1));
 
@@ -190,6 +209,41 @@ void run_gui(audio::Engine &engine, Shared &sh, std::function<void()> on_closed)
                         analyzer.feed({chunk, got * 2});
                 analyzer.analyze();
                 const auto &mags = analyzer.mags();
+
+                // PT: troca de faixa: atualiza a capa (sidecar yt-dlp ou
+                //     embutida via taglib). Fora do caminho por tick.
+                // EN: track change: update the cover (yt-dlp sidecar or
+                //     embedded via taglib). Off the per-tick path.
+                const auto cur_info = engine.current();
+                if (cur_info.path != last_cover_track)
+                {
+                        last_cover_track = cur_info.path;
+                        if (cur_info.path.empty())
+                        {
+                                cover->setPixmap(QPixmap());
+                                cover->setText("kiutube2");
+                        }
+                        else if (const auto art = library::cover_for(cur_info.path); art.has_value())
+                        {
+                                QPixmap pm(art->c_str());
+                                if (!pm.isNull())
+                                {
+                                        cover->setPixmap(pm.scaled(cover->size(), Qt::KeepAspectRatio,
+                                                                   Qt::SmoothTransformation));
+                                        cover->setText(QString());
+                                }
+                                else
+                                {
+                                        cover->setPixmap(QPixmap());
+                                        cover->setText(QString::fromStdString(cur_info.title));
+                                }
+                        }
+                        else
+                        {
+                                cover->setPixmap(QPixmap());
+                                cover->setText(QString::fromStdString(cur_info.title));
+                        }
+                }
 
                 if (mode == 1)
                 {
