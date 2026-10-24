@@ -1,42 +1,45 @@
-// PT: kiutube2 — marco M1: configuração real. Lê o kewrc legado (compat),
-//     sobrepõe o init.lua (~/.config/kiutube2/init.lua) com binds e settings,
-//     e despacha teclas via BindingMap (defaults constexpr + overrides).
-//     Prova o gate M1: tecla custom definida no Lua dispara ação.
-// EN: kiutube2 — milestone M1: real configuration. Reads the legacy kewrc
-//     (compat), overlays init.lua (~/.config/kiutube2/init.lua) with bindings
-//     and settings, and dispatches keys through BindingMap (constexpr
-//     defaults + overrides). Proves the M1 gate: a Lua-defined custom key
-//     triggers an action.
-// ES: kiutube2 — hito M1: configuración real. Lee el kewrc legado (compat),
-//     superpone el init.lua (~/.config/kiutube2/init.lua) con bindings y
-//     settings, y despacha teclas vía BindingMap (defaults constexpr +
-//     overrides). Prueba el gate M1: una tecla custom del Lua dispara acción.
-// ZH: kiutube2 —— 里程碑 M1：真实配置。读取旧的 kewrc（兼容），并用 init.lua
-//     （~/.config/kiutube2/init.lua）覆盖绑定与 settings，再通过 BindingMap
-//     分发按键（constexpr 默认值 + 覆盖）。验证 M1 门槛：Lua 定义的自定义
-//     键触发动作。
+// PT: kiutube2 — marco M2: engine de áudio real. `kiutube2 play <arq...>`
+//     enfileira e toca (wav/mp3/flac via miniaudio); a TUI mostra faixa,
+//     posição, estado e volume; space/n/setas/+/- controlam o transporte.
+//     Gate M2: sink input ativo no PipeWire (pactl) com o processo tocando.
+// EN: kiutube2 — milestone M2: real audio engine. `kiutube2 play <file...>`
+//     enqueues and plays (wav/mp3/flac via miniaudio); the TUI shows track,
+//     position, state and volume; space/n/arrows/+/- control transport.
+//     M2 gate: active sink input on PipeWire (pactl) while the process plays.
+// ES: kiutube2 — hito M2: engine de audio real. `kiutube2 play <archivo...>`
+//     encola y reproduce (wav/mp3/flac vía miniaudio); la TUI muestra pista,
+//     posición, estado y volumen; space/n/flechas/+/- controlan el transporte.
+//     Gate M2: sink input activo en PipeWire (pactl) con el proceso sonando.
+// ZH: kiutube2 —— 里程碑 M2：真实音频引擎。`kiutube2 play <文件...>` 入队并播放
+//     （经 miniaudio 的 wav/mp3/flac）；TUI 显示曲目、位置、状态与音量；
+//     space/n/方向键/+/- 控制传输。M2 门槛：进程播放时 PipeWire 上存在活跃
+//     sink input（pactl 验证）。
 #include "app/bindings.hpp"
 #include "app/paths.hpp"
 #include "app/settings.hpp"
+#include "audio/engine.hpp"
 #include "krt/log.hpp"
 #include "krt/scheduler.hpp"
 #include "script/lua_state.hpp"
 #include "tui/cell_buffer.hpp"
 #include "tui/term.hpp"
 
+#include <chrono>
+#include <atomic>
 #include <cstdio>
 #include <exception>
 #include <filesystem>
 #include <fstream>
-#include <sstream>
+#include <format>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace
 {
 
-// PT: trim de espaços para parse de linha key=value. / EN: whitespace trim for key=value line parsing.
-// ES: trim de espacios para parse de línea key=value. / ZH: key=value 行解析用的空白裁剪。
+using namespace std::chrono_literals;
+
 std::string_view trim(std::string_view s)
 {
         while (!s.empty() && (s.front() == ' ' || s.front() == '\t'))
@@ -46,24 +49,13 @@ std::string_view trim(std::string_view s)
         return s;
 }
 
-// PT: Carrega o kewrc legado (read-only): key=value conhecidas viram settings;
-//     bind=TECLA,EVENTO entra no BindingMap; resto é ignorado com log debug.
-// EN: Loads the legacy kewrc (read-only): known key=value lines become
-//     settings; bind=KEY,EVENT enters the BindingMap; the rest is ignored
-//     with a debug log.
-// ES: Carga el kewrc legado (read-only): key=value conocidas se vuelven
-//     settings; bind=TECLA,EVENTO entra en el BindingMap; el resto se ignora
-//     con log debug.
-// ZH: 加载旧的 kewrc（只读）：已知的 key=value 变为 settings；
-//     bind=键,事件 进入 BindingMap；其余记录 debug 日志后忽略。
+// PT: kewrc legado (read-only) — igual ao M1. / EN: legacy kewrc (read-only) — same as M1.
+// ES: kewrc legado (read-only) — igual al M1. / ZH: 旧 kewrc（只读）—— 与 M1 相同。
 void load_kewrc(const std::filesystem::path &path, app::Settings &st, app::BindingMap &map)
 {
         std::ifstream f(path);
         if (!f)
-        {
-                krt::log::info("kewrc: nao encontrado / not found / no encontrado / 未找到: {}", path.string());
                 return;
-        }
         std::string line;
         while (std::getline(f, line))
         {
@@ -75,7 +67,6 @@ void load_kewrc(const std::filesystem::path &path, app::Settings &st, app::Bindi
                         continue;
                 const auto key = trim(content.substr(0, eq));
                 const auto value = trim(content.substr(eq + 1));
-
                 if (key == "bind")
                 {
                         const auto comma = value.find(',');
@@ -85,128 +76,199 @@ void load_kewrc(const std::filesystem::path &path, app::Settings &st, app::Bindi
                         const auto event = app::event_from_name(trim(value.substr(comma + 1)));
                         if (spec && event)
                                 map.add_or_replace({*spec, *event});
-                        else
-                                krt::log::warn("kewrc: bind invalido / invalid / inválido / 无效: {}", std::string(value));
                         continue;
                 }
-                if (!app::apply_line(st, key, value))
-                        krt::log::debug("kewrc: chave ignorada / ignored key / clave ignorada / 忽略键: {}", std::string(key));
+                app::apply_line(st, key, value);
         }
-        krt::log::info("kewrc: carregado / loaded / cargado / 已加载: {}", path.string());
 }
 
-// PT: Identificador neutro da tecla (sem palavras traduzíveis; i18n das
-//     strings de UI chega com catálogos no M4).
-// EN: Neutral key identifier (no translatable words; UI string i18n lands
-//     with catalogs in M4).
-// ES: Identificador neutro de la tecla (sin palabras traducibles; el i18n de
-//     cadenas de UI llega con catálogos en M4).
-// ZH: 键的中性标识（不含可翻译词汇；UI 字符串 i18n 随 M4 的目录加入）。
-std::string key_id(const tui::KeyEvent &ev)
+// PT: mm:ss neutro (sem i18n). / EN: neutral mm:ss (no i18n).
+// ES: mm:ss neutro (sin i18n). / ZH: 中性 mm:ss（无 i18n）。
+std::string mmss(std::chrono::microseconds us)
 {
-        if (ev.key == tui::Key::Char)
-                return std::string(1, static_cast<char>(ev.ch));
-        switch (ev.key)
+        const auto s = std::chrono::duration_cast<std::chrono::seconds>(us).count();
+        return std::format("{:02}:{:02}", s / 60, s % 60);
+}
+
+// PT: Tela M2 compartilhada entre o loop de teclas e o relógio de UI — as
+//     duas corrotinas rodam na MESMA thread (scheduler), sem race.
+// EN: M2 screen shared by the key loop and the UI clock — both coroutines
+//     run on the SAME thread (scheduler), race-free.
+// ES: Pantalla M2 compartida entre el bucle de teclas y el reloj de UI — las
+//     dos corrutinas corren en el MISMO hilo (scheduler), sin race.
+// ZH: M2 屏幕由按键循环与 UI 时钟共享 —— 两个协程运行在相同线程（调度器）上，
+//     无竞争。
+struct Ui
+{
+        tui::Term term;
+        tui::CellBuffer buf;
+        audio::Engine &engine;
+        app::Settings &settings;
+        std::string last_key = "-";
+
+        Ui(audio::Engine &e, app::Settings &s, int rows_hint = 0) : buf(24, 100), engine(e), settings(s)
         {
-        case tui::Key::Enter: return "Enter"; case tui::Key::Tab: return "Tab";
-        case tui::Key::Backspace: return "Backspace"; case tui::Key::Esc: return "Esc";
-        case tui::Key::Up: return "Up"; case tui::Key::Down: return "Down";
-        case tui::Key::Left: return "Left"; case tui::Key::Right: return "Right";
-        case tui::Key::Home: return "Home"; case tui::Key::End: return "End";
-        case tui::Key::Insert: return "Insert"; case tui::Key::Delete: return "Delete";
-        case tui::Key::PageUp: return "PageUp"; case tui::Key::PageDown: return "PageDown";
-        case tui::Key::F1: return "F1"; case tui::Key::F2: return "F2";
-        case tui::Key::F3: return "F3"; case tui::Key::F4: return "F4";
-        case tui::Key::F5: return "F5"; case tui::Key::F6: return "F6";
-        case tui::Key::F7: return "F7"; case tui::Key::F8: return "F8";
-        case tui::Key::F9: return "F9"; case tui::Key::F10: return "F10";
-        case tui::Key::F11: return "F11"; case tui::Key::F12: return "F12";
-        default: return "?";
+                (void)rows_hint;
+                buf = tui::CellBuffer(term.rows(), term.cols());
+        }
+
+        void draw()
+        {
+                const auto cur = engine.current();
+                const auto pos = engine.position();
+                // PT: Telemetria do Heisenbug: valores brutos a cada redraw.
+                // EN: Heisenbug telemetry: raw values at every redraw.
+                // ES: Telemetría del Heisenbug: valores brutos en cada redraw.
+                // ZH: Heisenbug 遥测：每次重绘的原始值。
+                krt::log::debug("ui: pos={}us playing={} cur={} queue={}", pos.count(), engine.is_playing(),
+                                cur.path.empty() ? "none" : "set", engine.queue_size());
+                buf.clear();
+                buf.put(1, 2, "kiutube2 - M2 / PT / EN / ES / ZH");
+                buf.put(3, 2, "PT: engine de audio (miniaudio) / EN: audio engine / ES: motor de audio / ZH: \xe9\x9f\xb3\xe9\xa2\x91\xe5\xbc\x95\xe6\x93\x8e");
+                if (cur.path.empty())
+                {
+                        buf.put(5, 2, "kiutube2 play <arquivo / file / archivo / \xe6\x96\x87\xe4\xbb\xb6> ...");
+                        buf.put(6, 2, "key " + last_key); // PT: eco de tecla também sem faixa. EN: key echo also without a track.
+                                                          // ES: eco de tecla también sin pista. / ZH: 无曲目时同样回显按键。
+                }
+                else
+                {
+                        buf.put(5, 2, cur.title);
+                        // PT: pos exibida limitada à duração: o ring pode continuar
+                        //     tocando após o EOF do decoder (gapless/dreno).
+                        // EN: displayed position clamped to duration: the ring may
+                        //     keep playing past the decoder EOF (gapless/drain).
+                        // ES: pos mostrada limitada a la duración: el ring puede
+                        //     seguir sonando tras el EOF del decoder (gapless/dreno).
+                        // ZH: 显示位置限制在时长内：解码器 EOF 后环形缓冲可能继续
+                        //     播放（gapless/排空）。
+                        const auto shown_pos = std::min(pos, cur.duration);
+                        const std::string line = mmss(shown_pos) + " / " + mmss(cur.duration) +
+                                                 (engine.is_playing() ? "  |>" : "  ||") + "  vol " +
+                                                 std::to_string(static_cast<int>(engine.volume() * 100.0f + 0.5f)) +
+                                                 "%  queue " + std::to_string(engine.queue_size()) +
+                                                 "  key " + last_key;
+                        buf.put(6, 2, line);
+                }
+                // PT: Linha de config SEMPRE visível (gates M1 dependem dela).
+                // EN: Config line always visible (M1 gates depend on it).
+                // ES: Línea de config SIEMPRE visible (los gates M1 dependen de ella).
+                // ZH: 配置行始终可见（M1 门槛依赖它）。
+                std::string cfg = "volume=" + std::to_string(settings.volume) + " shuffle=" +
+                                  (settings.shuffle ? "on" : "off") + " visualizer=" +
+                                  (settings.visualizer ? "on" : "off") + " bindings ok";
+                buf.put(8, 2, cfg);
+                if (!settings.library_path.empty())
+                        buf.put(9, 2, "path=" + settings.library_path);
+                term.write_segments(buf.flush_diff());
+        }
+};
+
+krt::Task<void> ui_clock(Ui &ui, std::atomic<bool> &alive)
+{
+        // PT: Relógio: redesenha 4x/s para a posição avançar na tela; para
+        //     quando alive baixa (senão seus timers segurariam o run-loop).
+        // EN: Clock: redraws 4x/s so the position advances on screen; stops
+        //     when alive drops (otherwise its timers would hold the run-loop).
+        // ES: Reloj: redibuja 4x/s para que la posición avance en pantalla;
+        //     para cuando alive baja (si no, sus timers retendrían el run-loop).
+        // ZH: 时钟：每秒 4 次重绘，使位置在屏幕上前进；alive 置假后停止
+        //     （否则它的定时器会拖住 run-loop）。
+        while (alive.load(std::memory_order_acquire))
+        {
+                co_await krt::sleep(250ms);
+                ui.draw();
         }
 }
 
-krt::Task<void> app_main()
+krt::Task<void> app_main(audio::Engine &engine, Ui &ui, std::atomic<bool> &alive)
 {
-        krt::log::info("boot: kiutube2 M1");
+        krt::log::info("boot: kiutube2 M2");
 
-        // PT: Config em camadas: defaults -> kewrc legado -> init.lua.
-        // EN: Layered config: defaults -> legacy kewrc -> init.lua.
-        // ES: Config en capas: defaults -> kewrc legado -> init.lua.
-        // ZH: 分层配置：默认值 -> 旧 kewrc -> init.lua。
         app::Settings settings;
         app::BindingMap map;
         map.load_defaults();
         load_kewrc(app::config_dir("kew") / "kewrc", settings, map);
-
         script::LuaState lua;
         lua.open_config((app::config_dir("kiutube2") / "init.lua").string(), settings, map);
-
-        krt::log::info("config: volume={} shuffle={} visualizer={} bindings={}", settings.volume,
-                       settings.shuffle ? "on" : "off", settings.visualizer ? "on" : "off", map.size());
-
-        tui::Term term;
-        tui::CellBuffer buf(term.rows(), term.cols());
-        int scroll = 0;
-        std::string last = "-";
-
-        auto draw = [&] {
-                buf.clear();
-                buf.put(1, 2, "kiutube2 - M1 / PT / EN / ES / ZH");
-                buf.put(3, 2, "PT: config em camadas (kewrc + init.lua)");
-                buf.put(4, 2, "EN: layered config (kewrc + init.lua)");
-                buf.put(5, 2, "ES: config en capas (kewrc + init.lua)");
-                buf.put(6, 2, "ZH: \xe5\x88\x86\xe5\xb1\x82\xe9\x85\x8d\xe7\xbd\xae\xef\xbc\x88kewrc + init.lua\xef\xbc\x89");
-                std::string status = "volume=" + std::to_string(settings.volume) + " shuffle=" +
-                                     (settings.shuffle ? "on" : "off") + " visualizer=" +
-                                     (settings.visualizer ? "on" : "off") + " scroll=" + std::to_string(scroll) +
-                                     " last=" + last + " bindings=" + std::to_string(map.size());
-                buf.put(8, 2, status);
-                if (!settings.library_path.empty())
-                        buf.put(9, 2, "path=" + settings.library_path);
-                term.write_segments(buf.flush_diff());
-        };
-        draw();
+        ui.settings = settings;
+        ui.draw();
 
         for (;;)
         {
-                const auto ev = co_await term.next_event();
+                const auto ev = co_await ui.term.next_event();
                 if (const auto action = map.resolve(ev))
                 {
-                        last = std::string(app::event_name(*action));
                         switch (*action)
                         {
                         case app::Event::Quit:
-                                draw();
+                                alive.store(false, std::memory_order_release);
+                                engine.shutdown();
+                                engine.pause();
                                 krt::Scheduler::instance().request_stop();
                                 co_return;
-                        case app::Event::ScrollUp:
-                                ++scroll;
+                        case app::Event::TogglePause:
+                                if (engine.is_playing())
+                                        engine.pause();
+                                else
+                                        engine.play();
                                 break;
-                        case app::Event::ScrollDown:
-                                --scroll;
+                        case app::Event::Next:
+                                engine.next();
+                                break;
+                        case app::Event::SeekBack:
+                                engine.seek_by(std::chrono::seconds{-5});
+                                break;
+                        case app::Event::SeekForward:
+                                engine.seek_by(std::chrono::seconds{5});
+                                break;
+                        case app::Event::VolUp:
+                                engine.set_volume(engine.volume() + 0.05f);
+                                break;
+                        case app::Event::VolDown:
+                                engine.set_volume(engine.volume() - 0.05f);
                                 break;
                         default:
-                                // PT: YtmSearch/ToggleTranslation: placeholders M2+.
-                                // EN: YtmSearch/ToggleTranslation: M2+ placeholders.
-                                // ES: YtmSearch/ToggleTranslation: placeholders de M2+.
-                                // ZH: YtmSearch/ToggleTranslation：M2+ 占位。
                                 break;
                         }
                 }
-                else
-                        last = "[" + key_id(ev) + "]";
-                draw();
+                else if (ev.key == tui::Key::Char && ev.ch > 0x20 && ev.ch < 0x7f)
+                        ui.last_key = std::string(1, static_cast<char>(ev.ch));
+                ui.draw();
         }
 }
 
 } // namespace
 
-int main()
+// PT: main carrega o engine ANTES das tasks: destruição em ordem reversa
+//     garante que feeder/app morram antes do engine (elas o referenciam).
+// EN: main declares the engine BEFORE the tasks: reverse destruction order
+//     guarantees feeder/app die before the engine (they reference it).
+// ES: main declara el engine ANTES de las tasks: la destrucción en orden
+//     inverso garantiza que feeder/app mueran antes del engine (lo referencian).
+// ZH: main 在 tasks 之前声明 engine：逆序销毁保证 feeder/app 先于 engine
+//     销毁（它们引用 engine）。
+int main(int argc, char **argv)
 {
+        audio::Engine engine;
+        app::Settings early_settings;
+        if (argc >= 3 && std::string_view(argv[1]) == "play")
+        {
+                for (int i = 2; i < argc; ++i)
+                        engine.enqueue(argv[i]);
+                engine.play();
+        }
+
         try
         {
-                auto app = app_main();
+                Ui ui(engine, early_settings);
+                std::atomic<bool> alive{true};
+                auto app = app_main(engine, ui, alive);
+                auto clock = ui_clock(ui, alive);
+                auto feeder = engine.feeder_task();
                 app.start();
+                clock.start();
+                feeder.start();
                 krt::Scheduler::instance().run();
                 return 0;
         }

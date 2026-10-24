@@ -4,6 +4,8 @@
 // ZH: Scheduler 实现 —— 契约见 scheduler.hpp。
 #include "krt/scheduler.hpp"
 
+#include "krt/log.hpp"
+
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <unistd.h>
@@ -74,6 +76,9 @@ Scheduler::~Scheduler()
 
 void Scheduler::request_stop() noexcept
 {
+        // PT: Rastreio de ciclo de vida: quem pede parada e quando. / EN: Lifecycle tracing: who requests stop and when.
+        // ES: Rastreo de ciclo de vida: quién pide parada y cuándo. / ZH: 生命周期追踪：谁在何时请求停止。
+        krt::log::info("scheduler: stop solicitado / requested / solicitado / 收到停止请求");
         stopping_ = true;
         wake();
 }
@@ -149,14 +154,23 @@ void Scheduler::add_fd(int fd, std::coroutine_handle<> h)
 
 void Scheduler::run()
 {
+        krt::log::info("scheduler: run() iniciado / started / iniciado / 已启动");
         set_completion_hook([](std::coroutine_handle<> h) { Scheduler::instance().post(h); });
 
         std::vector<std::coroutine_handle<>> ready;
         epoll_event events[16];
+        auto last_beat = std::chrono::steady_clock::now();
 
         for (;;)
         {
                 const auto now = std::chrono::steady_clock::now();
+                if (now - last_beat > std::chrono::seconds(1))
+                {
+                        last_beat = now;
+                        std::lock_guard lk(mtx_);
+                        krt::log::info("scheduler: heartbeat timers={} fds={} posted={}", timers_.size(),
+                                       fds_.size(), posted_.size());
+                }
                 {
                         std::lock_guard lk(mtx_);
                         while (!timers_.empty() && timers_.front().first <= now)
@@ -195,6 +209,7 @@ void Scheduler::run()
                 {
                         if (errno == EINTR)
                                 continue;
+                        krt::log::error("scheduler: epoll_wait erro / error / error / 错误: {} — saindo / exiting / saliendo / 退出", errno);
                         break;
                 }
                 for (int i = 0; i < n; ++i)
@@ -238,6 +253,7 @@ Task<void> sleep(std::chrono::milliseconds ms)
                 }
                 void await_suspend(std::coroutine_handle<> h) const
                 {
+                        krt::log::debug("scheduler: timer +{}ms", ms_.count());
                         Scheduler::instance().add_timer(std::chrono::steady_clock::now() + ms_, h);
                 }
                 void await_resume() const noexcept

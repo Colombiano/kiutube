@@ -34,7 +34,13 @@ enum class Event : std::uint16_t
         ScrollUp,
         ScrollDown,
         YtmSearch,
-        ToggleTranslation
+        ToggleTranslation,
+        TogglePause,
+        Next,
+        SeekBack,
+        SeekForward,
+        VolUp,
+        VolDown
 };
 
 struct Settings

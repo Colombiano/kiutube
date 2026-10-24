@@ -57,45 +57,65 @@ def pump(master, out, duration):
 
 
 def main():
-    # PT: passos sequenciais: --expect espera substring; --send escreve bytes.
-    # EN: sequential steps: --expect waits for a substring; --send writes bytes.
-    # ES: pasos secuenciales: --expect espera substring; --send escribe bytes.
-    # ZH: 顺序步骤：--expect 等待子串；--send 写入字节。
+    # PT: parsing manual em ORDEM: --expect/--send/--sh executam na sequência
+    #     em que aparecem na linha de comando (zip por índice embaralhava o
+    #     roteiro e enviava teclas na hora errada).
+    # EN: Ordered manual parsing: --expect/--send/--sh execute in the exact
+    #     sequence they appear on the command line (index-zipping used to
+    #     scramble the script and sent keys at the wrong time).
+    # ES: Parsing manual en ORDEN: --expect/--send/--sh ejecutan en la
+    #     secuencia en que aparecen en la línea de comandos.
+    # ZH: 手动按序解析：--expect/--send/--sh 严格按命令行中出现顺序执行
+    #     （按索引 zip 会打乱步骤顺序，在错误的时间发送按键）。
     steps = []
-    ap = argparse.ArgumentParser()
-    ap.add_argument("binary")
-    ap.add_argument("--expect", action="append")
-    ap.add_argument("--send", action="append")
-    ap.add_argument("--expect-exit", type=float, default=None)
-    ap.add_argument("--timeout", type=float, default=15.0)
-    ap.add_argument("--rows", type=int, default=24)
-    ap.add_argument("--cols", type=int, default=100)
-    # PT: --home DIR: roda o binário com HOME=DIR (injeção de init.lua/kewrc de teste).
-    # EN: --home DIR: runs the binary with HOME=DIR (test init.lua/kewrc injection).
-    # ES: --home DIR: ejecuta el binario con HOME=DIR (inyección de init.lua/kewrc de prueba).
-    # ZH: --home DIR：以 HOME=DIR 运行二进制（注入测试用 init.lua/kewrc）。
-    ap.add_argument("--home", default=None)
-    args = ap.parse_args()
+    binary = None
+    expect_exit = None
+    timeout = 15.0
+    rows, cols = 24, 100
+    home = None
+    argv = sys.argv[1:]
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--expect":
+            steps.append(("expect", argv[i + 1])); i += 2
+        elif a == "--send":
+            steps.append(("send", argv[i + 1])); i += 2
+        elif a == "--sh":
+            steps.append(("sh", argv[i + 1])); i += 2
+        elif a == "--expect-exit":
+            expect_exit = float(argv[i + 1]); i += 2
+        elif a == "--timeout":
+            timeout = float(argv[i + 1]); i += 2
+        elif a == "--rows":
+            rows = int(argv[i + 1]); i += 2
+        elif a == "--cols":
+            cols = int(argv[i + 1]); i += 2
+        elif a == "--home":
+            home = argv[i + 1]; i += 2
+        else:
+            binary = a; i += 1
+    if not binary:
+        print("tui_smoke: FAIL binario / binary / binario / 二进制 ausente / missing", file=sys.stderr)
+        return 2
 
-    expects = args.expect or []
-    sends = args.send or []
-    n = max(len(expects), len(sends))
-    for i in range(n):
-        steps.append(("expect", expects[i]) if i < len(expects) else None)
-        steps.append(("send", sends[i]) if i < len(sends) else None)
-    steps = [s for s in steps if s]
-
-    master, slave = open_pty(args.rows, args.cols)
+    master, slave = open_pty(rows, cols)
     env = dict(os.environ)
-    if args.home:
-        env["HOME"] = args.home
-    proc = subprocess.Popen([args.binary], stdin=slave, stdout=slave, stderr=slave, close_fds=True, env=env)
+    if home:
+        env["HOME"] = home
+    # PT: o "binário" pode vir com argumentos: "./build/kiutube2 play a.wav".
+    # EN: the "binary" may carry arguments: "./build/kiutube2 play a.wav".
+    # ES: el "binario" puede traer argumentos: "./build/kiutube2 play a.wav".
+    # ZH: “二进制”可携带参数："./build/kiutube2 play a.wav"。
+    import shlex
+    argv_bin = shlex.split(binary)
+    proc = subprocess.Popen(argv_bin, stdin=slave, stdout=slave, stderr=slave, close_fds=True, env=env)
     os.close(slave)
 
     out = []
     ok = True
     for kind, value in steps:
-        deadline = time.time() + args.timeout
+        deadline = time.time() + timeout
         if kind == "expect":
             found = False
             while time.time() < deadline:
@@ -108,13 +128,21 @@ def main():
                 ok = False
                 print(f"tui_smoke: FAIL esperando / waiting / esperando / 等待: {value!r}", file=sys.stderr)
                 break
-        else:  # send
+        elif kind == "send":
             os.write(master, value.encode("utf-8").decode("unicode_escape").encode("latin-1"))
             time.sleep(0.3)
+        else:  # sh
+            # PT: Comando externo (ex.: pactl) com o app ainda rodando. / EN: External command (e.g. pactl) with the app still running.
+            # ES: Comando externo (p. ej. pactl) con la app aún corriendo. / ZH: 应用仍在运行时执行外部命令（如 pactl）。
+            time.sleep(0.5)  # PT: deixa o último estado assentar antes de checar. EN: let the last state settle. ES: deja asentar el último estado. ZH: 让上一状态稳定下来。
+            if subprocess.run(value, shell=True, capture_output=True).returncode != 0:
+                print(f"tui_smoke: FAIL comando / command / comando / 命令: {value}", file=sys.stderr)
+                ok = False
+                break
 
-    if ok and args.expect_exit is not None:
+    if ok and expect_exit is not None:
         try:
-            proc.wait(timeout=args.expect_exit)
+            proc.wait(timeout=expect_exit)
         except subprocess.TimeoutExpired:
             print("tui_smoke: FAIL processo nao saiu / did not exit / no salió / 未退出", file=sys.stderr)
             ok = False

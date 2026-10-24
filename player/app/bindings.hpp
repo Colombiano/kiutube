@@ -59,6 +59,17 @@ inline constexpr Binding kDefaultBindings[] = {
     {{tui::Key::Down, 0, tui::MOD_NONE}, Event::ScrollDown},
     {{tui::Key::F8, 0, tui::MOD_NONE}, Event::YtmSearch},
     {{tui::Key::F9, 0, tui::MOD_NONE}, Event::ToggleTranslation},
+    // PT: Transporte M2 (subset do kew: space toca/pausa, n próxima etc.).
+    // EN: M2 transport (kew subset: space toggles pause, n next, etc.).
+    // ES: Transporte M2 (subset de kew: space toca/pausa, n siguiente, etc.).
+    // ZH: M2 传输控制（kew 子集：space 播放/暂停、n 下一首等）。
+    {{tui::Key::Char, ' ', tui::MOD_NONE}, Event::TogglePause},
+    {{tui::Key::Char, 'n', tui::MOD_NONE}, Event::Next},
+    {{tui::Key::Left, 0, tui::MOD_NONE}, Event::SeekBack},
+    {{tui::Key::Right, 0, tui::MOD_NONE}, Event::SeekForward},
+    {{tui::Key::Char, '+', tui::MOD_NONE}, Event::VolUp},
+    {{tui::Key::Char, '=', tui::MOD_NONE}, Event::VolUp},
+    {{tui::Key::Char, '-', tui::MOD_NONE}, Event::VolDown},
 };
 
 // PT: Parse de nome de tecla (case-insensitive): "x", "F8", "enter", "ctrl-x",

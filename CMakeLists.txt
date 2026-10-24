@@ -77,15 +77,28 @@ target_include_directories(kiutube2_deps SYSTEM INTERFACE
   ${LUA_INCLUDE_DIR}
   ${sol2_SOURCE_DIR}/include
   ${magic_enum_SOURCE_DIR}/include
-  ${pocketfft_SOURCE_DIR})
+  ${pocketfft_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/include/miniaudio)
 target_link_libraries(kiutube2_deps INTERFACE Threads::Threads dl ${LUA_LIBRARY})
 
-# PT: Binário M1: config em camadas (kewrc legado + init.lua sol2) + bindings.
-# EN: M1 binary: layered config (legacy kewrc + sol2 init.lua) + bindings.
-# ES: Binario M1: config en capas (kewrc legado + init.lua sol2) + bindings.
-# ZH: M1 二进制：分层配置（旧 kewrc + sol2 init.lua）+ 键绑定。
+# PT: miniaudio no Linux fala ALSA; se não houver, cai em null backend (sem som).
+# EN: miniaudio talks ALSA on Linux; without it, falls back to null (silent).
+# ES: miniaudio habla ALSA en Linux; sin ella, cae en null backend (sin sonido).
+# ZH: Linux 上 miniaudio 使用 ALSA；没有则回退到 null 后端（无声）。
+find_library(ASOUND_LIBRARY asound)
+if(ASOUND_LIBRARY)
+  target_link_libraries(kiutube2_deps INTERFACE ${ASOUND_LIBRARY})
+endif()
+
+# PT: Binário M2: engine de áudio (device miniaudio + ring + feeder).
+# EN: M2 binary: audio engine (miniaudio device + ring + feeder).
+# ES: Binario M2: engine de audio (device miniaudio + ring + feeder).
+# ZH: M2 二进制：音频引擎（miniaudio 设备 + 环形缓冲 + feeder）。
 add_executable(kiutube2
   player/main.cpp
+  player/audio/decoder.cpp
+  player/audio/engine.cpp
+  player/audio/miniaudio_impl.cpp
   player/krt/scheduler.cpp
   player/script/lua_state.cpp
   player/tui/term.cpp)
@@ -108,6 +121,15 @@ add_executable(settings_smoke player/tests/settings_smoke.cpp)
 target_include_directories(settings_smoke PRIVATE player)
 target_link_libraries(settings_smoke PRIVATE kiutube2_deps)
 
+# PT: Smoke test do decoder (WAV gerado em C++, reamostragem, seek, EOF).
+# EN: Decoder smoke test (C++-generated WAV, resampling, seek, EOF).
+# ES: Smoke test del decoder (WAV generado en C++, remuestreo, seek, EOF).
+# ZH: 解码器冒烟测试（C++ 生成 WAV、重采样、seek、EOF）。
+add_executable(audio_smoke player/tests/audio_smoke.cpp player/audio/decoder.cpp player/audio/miniaudio_impl.cpp)
+target_include_directories(audio_smoke PRIVATE player)
+target_link_libraries(audio_smoke PRIVATE kiutube2_deps)
+
 enable_testing()
 add_test(NAME scheduler_smoke COMMAND scheduler_smoke)
 add_test(NAME settings_smoke COMMAND settings_smoke)
+add_test(NAME audio_smoke COMMAND audio_smoke)
