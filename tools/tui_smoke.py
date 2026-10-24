@@ -15,7 +15,7 @@
 #   tui_smoke.py BIN --expect STR [--send STR]... [--expect-exit SEC]
 #
 # Exemplo / Example / Ejemplo / 示例:
-#   tui_smoke.py ./build/kiutube2 --expect "kiutube2" --send "x" --expect "[x]" \
+#   tui_smoke.py ./build/kiutube --expect "kiutube" --send "x" --expect "[x]" \
 #                --send "q" --expect-exit 3
 import argparse
 import fcntl
@@ -119,10 +119,10 @@ def main():
     env = dict(os.environ)
     if home:
         env["HOME"] = home
-    # PT: o "binário" pode vir com argumentos: "./build/kiutube2 play a.wav".
-    # EN: the "binary" may carry arguments: "./build/kiutube2 play a.wav".
-    # ES: el "binario" puede traer argumentos: "./build/kiutube2 play a.wav".
-    # ZH: “二进制”可携带参数："./build/kiutube2 play a.wav"。
+    # PT: o "binário" pode vir com argumentos: "./build/kiutube play a.wav".
+    # EN: the "binary" may carry arguments: "./build/kiutube play a.wav".
+    # ES: el "binario" puede traer argumentos: "./build/kiutube play a.wav".
+    # ZH: “二进制”可携带参数："./build/kiutube play a.wav"。
     import shlex
     argv_bin = shlex.split(binary)
     proc = subprocess.Popen(argv_bin, stdin=slave, stdout=slave, stderr=slave, close_fds=True, env=env)

@@ -1,12 +1,12 @@
 // PT: Janela gráfica do visualizador (Qt 6 + QCustomPlot 2.1.1, vendored
 //     em third_party/, GPL-3). Roda numa thread dedicada: o QApplication e
-//     todos os widgets vivem e morrem lá; o kiutube2 (scheduler) continua
+//     todos os widgets vivem e morrem lá; o kiutube (scheduler) continua
 //     dono do fluxo. Amostras vêm do MESMO tap SPSC do engine — por isso a
 //     TUI suspende o próprio visualizador CLI enquanto a janela está aberta
 //     (o tap é SPSC: um consumidor por vez).
 // EN: GUI visualizer window (Qt 6 + QCustomPlot 2.1.1, vendored under
 //     third_party/, GPL-3). Runs on a dedicated thread: QApplication and all
-//     widgets live and die there; kiutube2 (scheduler) keeps owning the
+//     widgets live and die there; kiutube (scheduler) keeps owning the
 //     flow. Samples come from the SAME engine SPSC tap — that is why the
 //     TUI suspends its own CLI visualizer while the window is open (the tap
 //     is SPSC: one consumer at a time).
@@ -15,7 +15,7 @@
 //     — la TUI suspende su visualizador CLI mientras la ventana está abierta.
 // ZH: 可视化图形窗口（Qt 6 + QCustomPlot 2.1.1，vendored 于 third_party/，
 //     GPL-3）。运行在专用线程：QApplication 与所有 widget 在该线程内创建
-//     与销毁；kiutube2（调度器）仍主导流程。采样来自引擎同一个 SPSC
+//     与销毁；kiutube（调度器）仍主导流程。采样来自引擎同一个 SPSC
 //     tap —— 因此窗口打开期间 TUI 暂停自身的 CLI 可视化器（tap 为
 //     SPSC：同一时刻仅一个消费者）。
 #pragma once

@@ -63,10 +63,10 @@ constexpr int kSonoCols = 160;
 constexpr int kSonoRows = 192;
 constexpr double kSecondsPerCol = 1.0 / 20.0; // PT: alinhado ao tick de 50ms / aligned with the 50ms tick
 
-// PT: estado compartilhado entre a thread do kiutube2 e a thread GUI.
-// EN: state shared between the kiutube2 thread and the GUI thread.
-// ES: estado compartido entre el hilo de kiutube2 y el de la GUI.
-// ZH: kiutube2 线程与 GUI 线程共享的状态。
+// PT: estado compartilhado entre a thread do kiutube e a thread GUI.
+// EN: state shared between the kiutube thread and the GUI thread.
+// ES: estado compartido entre el hilo de kiutube y el de la GUI.
+// ZH: kiutube 线程与 GUI 线程共享的状态。
 struct Shared
 {
         std::atomic<int> mode{0}; // PT: 0=fechar 1=spectrum 2=spectrogram / 0=close 1=spectrum 2=spectrogram
@@ -94,7 +94,7 @@ void load_inferno_gradient(QCPColorGradient &g)
 void run_gui(audio::Engine &engine, Shared &sh, std::function<void()> on_closed)
 {
         int argc = 1;
-        char arg0[] = "kiutube2";
+        char arg0[] = "kiutube";
         char *argv[] = {arg0, nullptr};
         QApplication app(argc, argv);
 
@@ -107,7 +107,7 @@ void run_gui(audio::Engine &engine, Shared &sh, std::function<void()> on_closed)
         //     quitOnLastWindowClosed（默认）使 exec() 返回。
         auto *win = new QMainWindow;
         win->setAttribute(Qt::WA_DeleteOnClose);
-        win->setWindowTitle("kiutube2 — visualizer / visualizador / 可视化器");
+        win->setWindowTitle("kiutube — visualizer / visualizador / 可视化器");
         win->resize(1150, 540);
 
         viz::Visualizer analyzer; // PT: só a pipeline FFT (analyze + mags) / FFT pipeline only
@@ -175,7 +175,7 @@ void run_gui(audio::Engine &engine, Shared &sh, std::function<void()> on_closed)
         cover->setFixedSize(220, 220);
         cover->setAlignment(Qt::AlignCenter);
         cover->setStyleSheet("background: #1a1a1a; color: #888;");
-        cover->setText("kiutube2");
+        cover->setText("kiutube");
         layout->addWidget(cover);
         auto *stack = new QStackedWidget;
         stack->addWidget(spectrum);
@@ -221,7 +221,7 @@ void run_gui(audio::Engine &engine, Shared &sh, std::function<void()> on_closed)
                         if (cur_info.path.empty())
                         {
                                 cover->setPixmap(QPixmap());
-                                cover->setText("kiutube2");
+                                cover->setText("kiutube");
                         }
                         else if (const auto art = library::cover_for(cur_info.path); art.has_value())
                         {

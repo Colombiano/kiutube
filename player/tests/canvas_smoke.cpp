@@ -90,7 +90,7 @@ int color_distance(const cover::CellPaint &c, int r, int g, int b)
 
 int main()
 {
-        const std::string path = "/tmp/kiutube2_canvas_smoke.bmp";
+        const std::string path = "/tmp/kiutube_canvas_smoke.bmp";
         if (!write_probe_bmp(path))
         {
                 std::fprintf(stderr, "canvas_smoke: falha ao escrever BMP / failed to write BMP / 无法写入 BMP\n");
@@ -147,7 +147,7 @@ int main()
 
         // PT: Negativo: arquivo inexistente tem de falhar. / EN: Negative:
         //     missing file must fail. / ZH: 负路径：文件不存在必须失败。
-        if (cv.render("/tmp/kiutube2_canvas_smoke_nope.bmp"))
+        if (cv.render("/tmp/kiutube_canvas_smoke_nope.bmp"))
         {
                 std::fprintf(stderr, "canvas_smoke: negativo falhou / negative failed / 负路径失败\n");
                 return 1;

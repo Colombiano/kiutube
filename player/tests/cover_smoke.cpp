@@ -33,7 +33,7 @@ void check(bool cond, const char *what)
 
 int main()
 {
-        const std::string dir = "/tmp/kiutube2_cover_smoke";
+        const std::string dir = "/tmp/kiutube_cover_smoke";
         std::filesystem::remove_all(dir);
         std::filesystem::create_directories(dir);
 

@@ -1,13 +1,13 @@
-# PT: CMake do kiutube2 (reescrita C++20). Com o M5 o C legado (src/) saiu
+# PT: CMake do kiutube (reescrita C++20). Com o M5 o C legado (src/) saiu
 #     do repositório — este é o único build; ver docs/CPP20-REWRITE.md.
-# EN: kiutube2 build (C++20 rewrite). With M5 the legacy C (src/) left the
+# EN: kiutube build (C++20 rewrite). With M5 the legacy C (src/) left the
 #     repository — this is the only build; see docs/CPP20-REWRITE.md.
-# ES: CMake de kiutube2 (reescritura C++20). Con el M5 el C legado (src/)
+# ES: CMake de kiutube (reescritura C++20). Con el M5 el C legado (src/)
 #     salió del repositorio — este es el único build.
-# ZH: kiutube2（C++20 重写）的 CMake。M5 起旧 C 代码（src/）已离开仓库
+# ZH: kiutube（C++20 重写）的 CMake。M5 起旧 C 代码（src/）已离开仓库
 #     —— 这是唯一的构建方式；见 docs/CPP20-REWRITE.md。
 cmake_minimum_required(VERSION 3.28)
-project(kiutube2 VERSION 0.1.0 LANGUAGES C CXX)
+project(kiutube VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -32,11 +32,11 @@ add_compile_options(-Wall -Wextra -Werror)
 find_package(Threads REQUIRED)
 
 # PT: Qt 6 opcional: liga a janela gráfica do visualizador (gui/viz_window).
-#     Sem Qt, o kiutube2 compila com um stub que ignora (mesma API).
+#     Sem Qt, o kiutube compila com um stub que ignora (mesma API).
 # EN: Optional Qt 6: enables the visualizer GUI window (gui/viz_window).
-#     Without Qt, kiutube2 builds with a no-op stub (same API).
+#     Without Qt, kiutube builds with a no-op stub (same API).
 # ES: Qt 6 opcional: habilita la ventana gráfica del visualizador.
-#     Sin Qt, kiutube2 compila con un stub que ignora (misma API).
+#     Sin Qt, kiutube compila con un stub que ignora (misma API).
 # ZH: 可选 Qt 6：启用可视化器图形窗口（gui/viz_window）。无 Qt 时以同名
 #     no-op stub 编译。
 find_package(Qt6 COMPONENTS Widgets PrintSupport QUIET)
@@ -48,10 +48,10 @@ else()
 endif()
 
 # PT: chafa opcional: capa de álbum na TUI (library/canvas). Sem chafa, o
-#     kiutube2 compila com um stub que sempre falha em render() (mesma API).
+#     kiutube compila com um stub que sempre falha em render() (mesma API).
 #     Via pkg-config: os headers do chafa exigem glib (Requires: glib-2.0).
 # EN: Optional chafa: album art in the TUI (library/canvas). Without chafa,
-#     kiutube2 builds with a stub whose render() always fails (same API).
+#     kiutube builds with a stub whose render() always fails (same API).
 #     Via pkg-config: chafa headers require glib (Requires: glib-2.0).
 # ES: chafa opcional: carátula en la TUI. Sin chafa, compila con stub.
 # ZH: 可选 chafa：TUI 专辑封面（library/canvas）。无 chafa 时编译同名 stub。
@@ -128,15 +128,15 @@ endif()
 # ZH: SYSTEM includes：第三方警告不会触发 -Werror。compat/webm：kew 的 webm
 #     解封装器（decoder_impl.c 中唯一 C TU —— 看到 MINIAUDIO_IMPLEMENTATION
 #     时编译本体），作为已实现的规范保留；nestegg/miniaudio 仍在 include/。
-add_library(kiutube2_deps INTERFACE)
-target_include_directories(kiutube2_deps SYSTEM INTERFACE
+add_library(kiutube_deps INTERFACE)
+target_include_directories(kiutube_deps SYSTEM INTERFACE
   ${LUA_INCLUDE_DIR}
   ${sol2_SOURCE_DIR}/include
   ${magic_enum_SOURCE_DIR}/include
   ${pocketfft_SOURCE_DIR}
   ${CMAKE_SOURCE_DIR}/include
   ${CMAKE_SOURCE_DIR}/include/miniaudio)
-target_link_libraries(kiutube2_deps INTERFACE Threads::Threads dl ${LUA_LIBRARY})
+target_link_libraries(kiutube_deps INTERFACE Threads::Threads dl ${LUA_LIBRARY})
 
 # PT: miniaudio no Linux fala ALSA; se não houver, cai em null backend (sem som).
 # EN: miniaudio talks ALSA on Linux; without it, falls back to null (silent).
@@ -144,7 +144,7 @@ target_link_libraries(kiutube2_deps INTERFACE Threads::Threads dl ${LUA_LIBRARY}
 # ZH: Linux 上 miniaudio 使用 ALSA；没有则回退到 null 后端（无声）。
 find_library(ASOUND_LIBRARY asound)
 if(ASOUND_LIBRARY)
-  target_link_libraries(kiutube2_deps INTERFACE ${ASOUND_LIBRARY})
+  target_link_libraries(kiutube_deps INTERFACE ${ASOUND_LIBRARY})
 endif()
 
 # PT: Demux/decodificação webm: nestegg (C) + opus/opusfile + vorbis.
@@ -166,12 +166,12 @@ find_path(OPUS_INCLUDE_DIR opusfile.h PATH_SUFFIXES opus)
 find_path(VORBIS_INCLUDE_DIR vorbisfile.h PATH_SUFFIXES vorbis)
 foreach(lib OPUSFILE_LIBRARY OPUS_LIBRARY VORBISFILE_LIBRARY VORBIS_LIBRARY OGG_LIBRARY TAGLIB_LIBRARY CURL_LIBRARY)
   if(${lib})
-    target_link_libraries(kiutube2_deps INTERFACE ${${lib}})
+    target_link_libraries(kiutube_deps INTERFACE ${${lib}})
   endif()
 endforeach()
 foreach(inc OPUS_INCLUDE_DIR VORBIS_INCLUDE_DIR)
   if(${inc})
-    target_include_directories(kiutube2_deps SYSTEM INTERFACE ${${inc}})
+    target_include_directories(kiutube_deps SYSTEM INTERFACE ${${inc}})
   endif()
 endforeach()
 
@@ -179,7 +179,7 @@ endforeach()
 # EN: M3a binary: AnyDecoder with webm fallback (nestegg + opus/vorbis).
 # ES: Binario M3a: AnyDecoder con fallback webm (nestegg + opus/vorbis).
 # ZH: M3a 二进制：带 webm 回退的 AnyDecoder（nestegg + opus/vorbis）。
-add_executable(kiutube2
+add_executable(kiutube
   player/main.cpp
   player/audio/decoder.cpp
   player/audio/engine.cpp
@@ -206,10 +206,10 @@ add_executable(kiutube2
 # ES: QCustomPlot (vendored, GPL-3) solo entra con Qt.
 # ZH: QCustomPlot（vendored，GPL-3）仅在启用 Qt 时加入。
 if(Qt6Widgets_FOUND)
-  target_sources(kiutube2 PRIVATE third_party/qcustomplot/qcustomplot.cpp)
-  target_include_directories(kiutube2 PRIVATE third_party/qcustomplot)
-  target_compile_definitions(kiutube2 PRIVATE KIUTUBE2_WITH_QT)
-  target_link_libraries(kiutube2 PRIVATE Qt6::Widgets Qt6::PrintSupport)
+  target_sources(kiutube PRIVATE third_party/qcustomplot/qcustomplot.cpp)
+  target_include_directories(kiutube PRIVATE third_party/qcustomplot)
+  target_compile_definitions(kiutube PRIVATE KIUTUBE2_WITH_QT)
+  target_link_libraries(kiutube PRIVATE Qt6::Widgets Qt6::PrintSupport)
   set_source_files_properties(third_party/qcustomplot/qcustomplot.cpp
     PROPERTIES COMPILE_FLAGS "-w")
 endif()
@@ -219,11 +219,11 @@ endif()
 # ES: sdbus-c++ presente -> MPRIS real; si no, stub.
 # ZH: sdbus-c++ 存在（FetchContent）-> 真实 MPRIS；否则 stub。
 if(TARGET sdbus-c++)
-  target_compile_definitions(kiutube2 PRIVATE KIUTUBE2_WITH_MPRIS)
-  target_link_libraries(kiutube2 PRIVATE sdbus-c++)
+  target_compile_definitions(kiutube PRIVATE KIUTUBE2_WITH_MPRIS)
+  target_link_libraries(kiutube PRIVATE sdbus-c++)
   find_library(SYSTEMD_LIBRARY systemd)
   if(SYSTEMD_LIBRARY)
-    target_link_libraries(kiutube2 PRIVATE ${SYSTEMD_LIBRARY})
+    target_link_libraries(kiutube PRIVATE ${SYSTEMD_LIBRARY})
   endif()
 endif()
 
@@ -235,8 +235,8 @@ endif()
 # ZH: chafa 存在 -> 真实 TUI 封面；否则 stub。SYSTEM includes：第三方警告
 #     不会触发 -Werror。
 if(CHafa_FOUND)
-  target_compile_definitions(kiutube2 PRIVATE KIUTUBE2_WITH_CHAFA)
-  target_link_libraries(kiutube2 PRIVATE PkgConfig::CHafa)
+  target_compile_definitions(kiutube PRIVATE KIUTUBE2_WITH_CHAFA)
+  target_link_libraries(kiutube PRIVATE PkgConfig::CHafa)
 endif()
 # PT: Código legado (webm.h do kew, nestegg): warnings suprimidos por não
 #     serem nossos para polir; a fronteira C fica no shim.
@@ -247,8 +247,8 @@ endif()
 # ZH: 遗留代码（kew 的 webm.h、nestegg）：抑制警告 —— C 边界位于 shim。
 set_source_files_properties(player/audio/webm_decoder.cpp player/audio/decoder_impl.c include/nestegg/nestegg.c
   PROPERTIES COMPILE_FLAGS "-w")
-target_include_directories(kiutube2 PRIVATE player)
-target_link_libraries(kiutube2 PRIVATE kiutube2_deps)
+target_include_directories(kiutube PRIVATE player)
+target_link_libraries(kiutube PRIVATE kiutube_deps)
 
 # PT: Smoke test do scheduler (gate de regressão de todos os marcos).
 # EN: Scheduler smoke test (regression gate for every milestone).
@@ -256,7 +256,7 @@ target_link_libraries(kiutube2 PRIVATE kiutube2_deps)
 # ZH: 调度器冒烟测试（每个里程碑的回归门槛）。
 add_executable(scheduler_smoke player/tests/scheduler_smoke.cpp player/krt/scheduler.cpp)
 target_include_directories(scheduler_smoke PRIVATE player)
-target_link_libraries(scheduler_smoke PRIVATE kiutube2_deps)
+target_link_libraries(scheduler_smoke PRIVATE kiutube_deps)
 
 # PT: Smoke test de settings/bindings (parse genérico + magic_enum + override).
 # EN: Settings/bindings smoke test (generic parsing + magic_enum + override).
@@ -264,7 +264,7 @@ target_link_libraries(scheduler_smoke PRIVATE kiutube2_deps)
 # ZH: settings/bindings 冒烟测试（通用解析 + magic_enum + 覆盖）。
 add_executable(settings_smoke player/tests/settings_smoke.cpp)
 target_include_directories(settings_smoke PRIVATE player)
-target_link_libraries(settings_smoke PRIVATE kiutube2_deps)
+target_link_libraries(settings_smoke PRIVATE kiutube_deps)
 
 # PT: Smoke test do decoder (WAV gerado em C++, reamostragem, seek, EOF).
 # EN: Decoder smoke test (C++-generated WAV, resampling, seek, EOF).
@@ -272,7 +272,7 @@ target_link_libraries(settings_smoke PRIVATE kiutube2_deps)
 # ZH: 解码器冒烟测试（C++ 生成 WAV、重采样、seek、EOF）。
 add_executable(audio_smoke player/tests/audio_smoke.cpp player/audio/decoder.cpp player/audio/decoder_impl.c include/nestegg/nestegg.c)
 target_include_directories(audio_smoke PRIVATE player)
-target_link_libraries(audio_smoke PRIVATE kiutube2_deps)
+target_link_libraries(audio_smoke PRIVATE kiutube_deps)
 
 enable_testing()
 add_test(NAME scheduler_smoke COMMAND scheduler_smoke)
@@ -285,7 +285,7 @@ add_test(NAME audio_smoke COMMAND audio_smoke)
 # ZH: library + fuzzy 冒烟测试（typesense OSA、taglib 扫描）。
 add_executable(library_smoke player/tests/library_smoke.cpp player/library/library.cpp)
 target_include_directories(library_smoke PRIVATE player)
-target_link_libraries(library_smoke PRIVATE kiutube2_deps)
+target_link_libraries(library_smoke PRIVATE kiutube_deps)
 add_test(NAME library_smoke COMMAND library_smoke)
 
 # PT: Smoke test do visualizador (FFT 440Hz ±3%, paleta, SGR colorido).
@@ -294,7 +294,7 @@ add_test(NAME library_smoke COMMAND library_smoke)
 # ZH: 可视化器冒烟测试（440Hz FFT ±3%、调色板、彩色 SGR）。
 add_executable(viz_smoke player/tests/viz_smoke.cpp player/tui/visualizer.cpp ${pocketfft_SOURCE_DIR}/pocketfft.c)
 target_include_directories(viz_smoke PRIVATE player ${pocketfft_SOURCE_DIR})
-target_link_libraries(viz_smoke PRIVATE kiutube2_deps)
+target_link_libraries(viz_smoke PRIVATE kiutube_deps)
 add_test(NAME viz_smoke COMMAND viz_smoke)
 
 # PT: Smoke test de capa (sidecar de thumb, negativos).
@@ -302,7 +302,7 @@ add_test(NAME viz_smoke COMMAND viz_smoke)
 # ES: Smoke test de carátula. / ZH: 封面冒烟测试（sidecar 缩略图、负路径）。
 add_executable(cover_smoke player/tests/cover_smoke.cpp player/library/cover.cpp)
 target_include_directories(cover_smoke PRIVATE player)
-target_link_libraries(cover_smoke PRIVATE kiutube2_deps)
+target_link_libraries(cover_smoke PRIVATE kiutube_deps)
 add_test(NAME cover_smoke COMMAND cover_smoke)
 
 # PT: Smoke test do canvas chafa (BMP de 4 quadrantes, cores, stub).
@@ -310,7 +310,7 @@ add_test(NAME cover_smoke COMMAND cover_smoke)
 # ES: Smoke test del canvas chafa. / ZH: chafa 画布冒烟测试（四象限 BMP）。
 add_executable(canvas_smoke player/tests/canvas_smoke.cpp player/library/canvas.cpp)
 target_include_directories(canvas_smoke PRIVATE player)
-target_link_libraries(canvas_smoke PRIVATE kiutube2_deps)
+target_link_libraries(canvas_smoke PRIVATE kiutube_deps)
 if(CHafa_FOUND)
   target_compile_definitions(canvas_smoke PRIVATE KIUTUBE2_WITH_CHAFA)
   target_link_libraries(canvas_smoke PRIVATE PkgConfig::CHafa)

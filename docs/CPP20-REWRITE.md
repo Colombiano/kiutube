@@ -1,4 +1,4 @@
-# kiutube2 — Reescrita C++20 / C++20 Rewrite / Reescritura C++20 / C++20 重写
+# kiutube — Reescrita C++20 / C++20 Rewrite / Reescritura C++20 / C++20 重写
 
 **[Português](#português) · [English](#english) · [Español](#español) · [中文](#中文)**
 
@@ -73,7 +73,7 @@ MESMO tap SPSC do engine — a TUI suspende o viz CLI enquanto ela está
 aberta. Fechar pelo X alinha o modo no TUI via `post_function`.
 `KIUTUBE2_NO_GUI=1` desativa a janela (testes do viz CLI). Sem Qt no
 sistema, compila com stub de mesma API. Nota de licença: Qt/QCustomPlot
-são GPL-3 — o binário kiutube2 com GUI é efetivamente GPL-3; o núcleo C
+são GPL-3 — o binário kiutube com GUI é efetivamente GPL-3; o núcleo C
 permanece GPL-2.
 
 **F8 YTM + CLI --ytm (M4f)**: `net/ytm` (port síncrono de
@@ -81,8 +81,8 @@ src/ytm/ytm.cpp: yt-dlp com templates --print — atenção ao escape: `\t`
 no literal C++ vira TAB real no comando; `\\t` quebraria o parse). F8 na
 TUI: prompt YTM → busca em background (offload) → resultados com filtro
 substring ao vivo → Enter baixa (destino: library_path ou
-~/.cache/kiutube2/streams) e toca, re-escaneando a biblioteca. CLI
-headless: `kiutube2 --ytm search|play "<query>"` (search lista e sai; play
+~/.cache/kiutube/streams) e toca, re-escaneando a biblioteca. CLI
+headless: `kiutube --ytm search|play "<query>"` (search lista e sai; play
 baixa e abre o TUI tocando). Gate PTY: F8 → busca real → download → sink
 input pactl.
 
@@ -94,7 +94,7 @@ constexpr de descritores (a mesma tabela expõe os campos ao Lua), bindings
 com eventos magic_enum, kewrc legado em camadas (defaults → kewrc →
 `init.lua` sol2), logging.
 
-**M2 — engine de áudio**: `kiutube2 play <arq>` toca wav/mp3/flac via
+**M2 — engine de áudio**: `kiutube play <arq>` toca wav/mp3/flac via
 miniaudio: device RAII + ring lock-free SPSC (~2,7s) + feeder corrotina no
 scheduler. Gapless por construção (o ring nunca é drenado entre faixas;
 `playing_info` separa "o que está tocando" do "decoder aberto", que é
@@ -184,9 +184,9 @@ Todo comentário, documento, string de UI e commit segue PT → EN → ES → ZH
 cmake -B build && cmake --build build -j16
 ctest --test-dir build
 # gate M2 (áudio): toca um WAV e afirma sink input no PipeWire
-python3 tools/tui_smoke.py "./build/kiutube2 play /tmp/kiutube2_gate.wav" \
-  --expect "kiutube2" \
-  --sh "sleep 1.2; pactl list sink-inputs | grep -q 'application.process.binary = \"kiutube2\"'" \
+python3 tools/tui_smoke.py "./build/kiutube play /tmp/kiutube_gate.wav" \
+  --expect "kiutube" \
+  --sh "sleep 1.2; pactl list sink-inputs | grep -q 'application.process.binary = \"kiutube\"'" \
   --expect "00:01" --send " " --expect "||" --send "q" --expect-exit 3
 ```
 
@@ -257,7 +257,7 @@ engine SPSC tap — the TUI suspends its CLI viz while it is open. Closing
 via X aligns the mode in the TUI through `post_function`.
 `KIUTUBE2_NO_GUI=1` disables the window (CLI viz tests). Without Qt on
 the system it builds with a same-API stub. License note: Qt/QCustomPlot
-are GPL-3 — the kiutube2 binary with GUI is effectively GPL-3; the C core
+are GPL-3 — the kiutube binary with GUI is effectively GPL-3; the C core
 stays GPL-2.
 
 **F8 YTM + --ytm CLI (M4f)**: `net/ytm` (synchronous port of
@@ -265,8 +265,8 @@ src/ytm/ytm.cpp: yt-dlp with --print templates — mind the escape: `\t` in
 the C++ literal becomes a REAL TAB in the command; `\\t` would break the
 parse). F8 in the TUI: YTM prompt -> background search (offload) ->
 results with live substring filter -> Enter downloads (to library_path or
-~/.cache/kiutube2/streams) and plays, rescanning the library. Headless
-CLI: `kiutube2 --ytm search|play "<query>"` (search lists and exits; play
+~/.cache/kiutube/streams) and plays, rescanning the library. Headless
+CLI: `kiutube --ytm search|play "<query>"` (search lists and exits; play
 downloads and opens the TUI playing). PTY gate: F8 -> real search ->
 download -> pactl sink input.
 
@@ -277,7 +277,7 @@ terminal layer, PTY smoke harness, CMake `-Werror` build.
 constexpr descriptor table (the same table exposes fields to Lua), magic_enum
 bindings, layered legacy kewrc (defaults → kewrc → sol2 `init.lua`), logging.
 
-**M2 — audio engine**: `kiutube2 play <file>` plays wav/mp3/flac via
+**M2 — audio engine**: `kiutube play <file>` plays wav/mp3/flac via
 miniaudio: RAII device + lock-free SPSC ring (~2.7s) + scheduler coroutine
 feeder. Gapless by construction (the ring is never drained between tracks;
 `playing_info` separates "what is playing" from the "open decoder", which is
@@ -368,9 +368,9 @@ Every comment, document, UI string and commit follows PT → EN → ES → ZH.
 cmake -B build && cmake --build build -j16
 ctest --test-dir build
 # M2 gate (audio): plays a WAV and asserts a PipeWire sink input
-python3 tools/tui_smoke.py "./build/kiutube2 play /tmp/kiutube2_gate.wav" \
-  --expect "kiutube2" \
-  --sh "sleep 1.2; pactl list sink-inputs | grep -q 'application.process.binary = \"kiutube2\"'" \
+python3 tools/tui_smoke.py "./build/kiutube play /tmp/kiutube_gate.wav" \
+  --expect "kiutube" \
+  --sh "sleep 1.2; pactl list sink-inputs | grep -q 'application.process.binary = \"kiutube\"'" \
   --expect "00:01" --send " " --expect "||" --send "q" --expect-exit 3
 ```
 
@@ -428,14 +428,14 @@ tap SPSC del engine — la TUI suspende su viz CLI mientras está abierta.
 Cerrar por la X alinea el modo en la TUI vía `post_function`.
 `KIUTUBE2_NO_GUI=1` desactiva la ventana. Sin Qt, compila con stub de
 misma API. Nota de licencia: Qt/QCustomPlot son GPL-3 — el binario
-kiutube2 con GUI es efectivamente GPL-3; el núcleo C sigue GPL-2.
+kiutube con GUI es efectivamente GPL-3; el núcleo C sigue GPL-2.
 
 **F8 YTM + CLI --ytm (M4f)**: `net/ytm` (port síncrono de
 src/ytm/ytm.cpp: yt-dlp con templates --print — ojo al escape: `\t` en el
 literal C++ se vuelve TAB real en el comando). F8 en la TUI: prompt YTM ->
 búsqueda en background -> resultados con filtro substring en vivo -> Enter
 descarga y reproduce, re-escaneando la biblioteca. CLI headless:
-`kiutube2 --ytm search|play "<query>"`. Gate PTY: F8 -> búsqueda real ->
+`kiutube --ytm search|play "<query>"`. Gate PTY: F8 -> búsqueda real ->
 descarga -> sink input pactl.
 
 **M0 — fundación**: scheduler de corrutinas (epoll + timers + eventfd),
@@ -446,7 +446,7 @@ constexpr de descriptores (la misma tabla expone los campos a Lua), bindings
 con eventos magic_enum, kewrc legado en capas (defaults → kewrc →
 `init.lua` sol2), logging.
 
-**M2 — motor de audio**: `kiutube2 play <archivo>` reproduce wav/mp3/flac vía
+**M2 — motor de audio**: `kiutube play <archivo>` reproduce wav/mp3/flac vía
 miniaudio: device RAII + ring lock-free SPSC (~2,7s) + feeder corrutina en el
 scheduler. Gapless por construcción (el ring nunca se drena entre pistas;
 `playing_info` separa "lo que suena" del "decoder abierto", que se libera en
@@ -537,9 +537,9 @@ Todo comentario, documento, string de UI y commit sigue PT → EN → ES → ZH.
 cmake -B build && cmake --build build -j16
 ctest --test-dir build
 # gate M2 (audio): reproduce un WAV y asegura sink input en PipeWire
-python3 tools/tui_smoke.py "./build/kiutube2 play /tmp/kiutube2_gate.wav" \
-  --expect "kiutube2" \
-  --sh "sleep 1.2; pactl list sink-inputs | grep -q 'application.process.binary = \"kiutube2\"'" \
+python3 tools/tui_smoke.py "./build/kiutube play /tmp/kiutube_gate.wav" \
+  --expect "kiutube" \
+  --sh "sleep 1.2; pactl list sink-inputs | grep -q 'application.process.binary = \"kiutube\"'" \
   --expect "00:01" --send " " --expect "||" --send "q" --expect-exit 3
 ```
 
@@ -599,15 +599,15 @@ inferno 渐变 + 色条，类似 espectrograma2d.png），全分辨率渲染。�
 排空引擎同一个 SPSC tap —— 打开期间 TUI 暂停 CLI 可视化器。经 X 关闭
 会通过 `post_function` 对齐 TUI 模式。`KIUTUBE2_NO_GUI=1` 禁用窗口
 （CLI viz 测试）。系统无 Qt 时以同 API stub 编译。许可说明：Qt/
-QCustomPlot 为 GPL-3 —— 含 GUI 的 kiutube2 二进制实际为 GPL-3；C 核心
+QCustomPlot 为 GPL-3 —— 含 GUI 的 kiutube 二进制实际为 GPL-3；C 核心
 仍为 GPL-2。
 
 **F8 YTM + CLI --ytm（M4f）**：`net/ytm`（src/ytm/ytm.cpp 的同步移植：
 yt-dlp 使用 --print 模板 —— 注意转义：C++ 字面量中的 `\t` 会变成
 命令中的真实 TAB；`\\t` 会使解析断裂）。TUI 中按 F8：YTM 输入框 ->
 后台搜索（offload）-> 结果实时子串过滤 -> Enter 下载（目标为
-library_path 或 ~/.cache/kiutube2/streams）并播放，同时重扫曲库。无头
-CLI：`kiutube2 --ytm search|play "<query>"`（search 列出后退出；play
+library_path 或 ~/.cache/kiutube/streams）并播放，同时重扫曲库。无头
+CLI：`kiutube --ytm search|play "<query>"`（search 列出后退出；play
 下载后进入 TUI 播放）。PTY 门槛：F8 -> 真实搜索 -> 下载 -> pactl
 sink input。
 
@@ -618,7 +618,7 @@ sink input。
 解析（同一张表向 Lua 暴露字段）、magic_enum 事件绑定、分层的旧 kewrc
 （默认值 → kewrc → sol2 `init.lua`）、日志。
 
-**M2 —— 音频引擎**：`kiutube2 play <文件>` 播放 wav/mp3/flac（经
+**M2 —— 音频引擎**：`kiutube play <文件>` 播放 wav/mp3/flac（经
 miniaudio）：RAII 设备 + lock-free SPSC 环形缓冲（约 2.7 秒）+ 调度器
 协程 feeder。按构造实现 gapless（曲目之间环形缓冲不被排空；
 `playing_info` 将"正在播放的曲目"与"打开的解码器"分离，解码器在 EOF
@@ -708,9 +708,9 @@ UI 组件的 CRTP、`std::format`。
 cmake -B build && cmake --build build -j16
 ctest --test-dir build
 # M2 门槛（音频）：播放 WAV 并断言 PipeWire sink input
-python3 tools/tui_smoke.py "./build/kiutube2 play /tmp/kiutube2_gate.wav" \
-  --expect "kiutube2" \
-  --sh "sleep 1.2; pactl list sink-inputs | grep -q 'application.process.binary = \"kiutube2\"'" \
+python3 tools/tui_smoke.py "./build/kiutube play /tmp/kiutube_gate.wav" \
+  --expect "kiutube" \
+  --sh "sleep 1.2; pactl list sink-inputs | grep -q 'application.process.binary = \"kiutube\"'" \
   --expect "00:01" --send " " --expect "||" --send "q" --expect-exit 3
 ```
 

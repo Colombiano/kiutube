@@ -24,7 +24,7 @@ O kiutube tem duas linhas de código convivendo:
   YouTube Music via yt-dlp, letras sincronizadas do LRCLIB (também para
   faixas locais) e tradução automática das letras para português. Detalhes em
   [README-YTM.md](README-YTM.md).
-- **`kiutube2`** (binário C++20, build via `CMake`) — a reescrita greenfield
+- **`kiutube`** (binário C++20, build via `CMake`) — a reescrita greenfield
   do player em C++20 puro: corrotinas próprias, metaprogramação, Lua e
   testes PTY. Progresso: **M0 ✅ M1 ✅ M2 ✅** (scheduler, configuração,
   engine de áudio com gapless). Roadmap em
@@ -52,7 +52,7 @@ sudo apt install libopusfile-dev libvorbis-dev libogg-dev libtag1-dev \
                  libfaad-dev liblua5.4-dev
 make -j$(nproc)
 
-# kiutube2 (reescrita C++20)
+# kiutube (reescrita C++20)
 cmake -B build && cmake --build build -j16
 ctest --test-dir build
 ```
@@ -76,7 +76,7 @@ kiutube has two code lines coexisting:
   streaming via yt-dlp, synced lyrics from LRCLIB (also for local tracks) and
   automatic lyric translation to Portuguese. See
   [README-YTM.md](README-YTM.md).
-- **`kiutube2`** (C++20 binary, built via `CMake`) — the greenfield rewrite
+- **`kiutube`** (C++20 binary, built via `CMake`) — the greenfield rewrite
   in pure C++20: own coroutines, metaprogramming, Lua and PTY tests.
   Progress: **M0 ✅ M1 ✅ M2 ✅** (scheduler, configuration, gapless audio
   engine). Roadmap in [docs/CPP20-REWRITE.md](docs/CPP20-REWRITE.md).
@@ -103,7 +103,7 @@ sudo apt install libopusfile-dev libvorbis-dev libogg-dev libtag1-dev \
                  libfaad-dev liblua5.4-dev
 make -j$(nproc)
 
-# kiutube2 (C++20 rewrite)
+# kiutube (C++20 rewrite)
 cmake -B build && cmake --build build -j16
 ctest --test-dir build
 ```
@@ -127,7 +127,7 @@ kiutube tiene dos líneas de código conviviendo:
   YouTube Music vía yt-dlp, letras sincronizadas de LRCLIB (también para
   pistas locales) y traducción automática de letras al portugués. Detalles en
   [README-YTM.md](README-YTM.md).
-- **`kiutube2`** (binario C++20, build vía `CMake`) — la reescritura
+- **`kiutube`** (binario C++20, build vía `CMake`) — la reescritura
   greenfield en C++20 puro: corrutinas propias, metaprogramación, Lua y
   pruebas PTY. Progreso: **M0 ✅ M1 ✅ M2 ✅** (scheduler, configuración,
   motor de audio gapless). Roadmap en
@@ -155,7 +155,7 @@ sudo apt install libopusfile-dev libvorbis-dev libogg-dev libtag1-dev \
                  libfaad-dev liblua5.4-dev
 make -j$(nproc)
 
-# kiutube2 (reescritura C++20)
+# kiutube (reescritura C++20)
 cmake -B build && cmake --build build -j16
 ctest --test-dir build
 ```
@@ -178,7 +178,7 @@ kiutube 目前有两条并存的代码线：
   kew 的 fork，带 ytm 层（`src/ytm/`，C++20），通过 yt-dlp 实现
   YouTube Music 流媒体、LRCLIB 同步歌词（也支持本地曲目）以及歌词的
   葡萄牙语自动翻译。详见 [README-YTM.md](README-YTM.md)。
-- **`kiutube2`**（C++20 二进制，`CMake` 构建）—— 纯 C++20 的 greenfield
+- **`kiutube`**（C++20 二进制，`CMake` 构建）—— 纯 C++20 的 greenfield
   重写：自研协程、元编程、Lua 与 PTY 测试。进度：**M0 ✅ M1 ✅ M2 ✅**
   （调度器、配置、gapless 音频引擎）。路线图见
   [docs/CPP20-REWRITE.md](docs/CPP20-REWRITE.md)。
@@ -205,7 +205,7 @@ sudo apt install libopusfile-dev libvorbis-dev libogg-dev libtag1-dev \
                  libfaad-dev liblua5.4-dev
 make -j$(nproc)
 
-# kiutube2（C++20 重写）
+# kiutube（C++20 重写）
 cmake -B build && cmake --build build -j16
 ctest --test-dir build
 ```

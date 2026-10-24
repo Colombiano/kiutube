@@ -1,16 +1,16 @@
-// PT: kiutube2 — marco M3b/M3c: biblioteca com busca fuzzy (métrica do
+// PT: kiutube — marco M3b/M3c: biblioteca com busca fuzzy (métrica do
 //     Typesense) via picker na TUI + letras do LRCLIB com view própria.
 //     'l' abre a biblioteca (digite para filtrar, Enter toca, ESC fecha);
 //     'g' busca a letra da faixa atual (rede em offload, nunca bloqueia).
-// EN: kiutube2 — milestone M3b/M3c: library with Typesense-metric fuzzy
+// EN: kiutube — milestone M3b/M3c: library with Typesense-metric fuzzy
 //     search through an in-TUI picker + LRCLIB lyrics with their own view.
 //     'l' opens the library (type to filter, Enter plays, ESC closes); 'g'
 //     fetches lyrics for the current track (network offloaded, never blocks).
-// ES: kiutube2 — hito M3b/M3c: biblioteca con búsqueda fuzzy (métrica de
+// ES: kiutube — hito M3b/M3c: biblioteca con búsqueda fuzzy (métrica de
 //     Typesense) vía picker en la TUI + letras de LRCLIB con vista propia.
 //     'l' abre la biblioteca (teclea para filtrar, Enter reproduce, ESC
 //     cierra); 'g' busca la letra de la pista actual (red en offload).
-// ZH: kiutube2 —— 里程碑 M3b/M3c：带模糊搜索（Typesense 度量）的曲库
+// ZH: kiutube —— 里程碑 M3b/M3c：带模糊搜索（Typesense 度量）的曲库
 //     TUI 选择器 + LRCLIB 歌词视图。'l' 打开曲库（输入即过滤，Enter 播放，
 //     ESC 关闭）；'g' 获取当前曲目歌词（网络经 offload，绝不阻塞）。
 #include "app/bindings.hpp"
@@ -118,7 +118,7 @@ int cli_ytm(int argc, char **argv, audio::Engine &engine)
 {
         if (argc < 4)
         {
-                std::fprintf(stderr, "uso / usage / uso / 用法: kiutube2 --ytm search|play \"<query>\"\n");
+                std::fprintf(stderr, "uso / usage / uso / 用法: kiutube --ytm search|play \"<query>\"\n");
                 return 2;
         }
         const std::string sub = argv[2];
@@ -149,21 +149,21 @@ int cli_ytm(int argc, char **argv, audio::Engine &engine)
                 if (!r.has_value() || r->empty())
                         return 1;
                 const std::string base_dir = std::getenv("XDG_CACHE_HOME")
-                                                 ? std::string(std::getenv("XDG_CACHE_HOME")) + "/kiutube2/streams"
-                                                 : std::string(std::getenv("HOME")) + "/.cache/kiutube2/streams";
+                                                 ? std::string(std::getenv("XDG_CACHE_HOME")) + "/kiutube/streams"
+                                                 : std::string(std::getenv("HOME")) + "/.cache/kiutube/streams";
                 const auto &t = (*r)[0];
                 const auto path =
                         net::ytm_download(t.video_id, base_dir + "/" + sanitize_filename(t.artist) + " - " +
                                                           sanitize_filename(t.title) + " [" + t.video_id + "]");
                 if (!path.has_value())
                         return 1;
-                std::fprintf(stderr, "kiutube2: tocando / playing / reproduciendo / 播放: %s\n",
+                std::fprintf(stderr, "kiutube: tocando / playing / reproduciendo / 播放: %s\n",
                              path->c_str());
                 engine.enqueue(*path);
                 engine.play();
                 return -1; // PT: segue pro TUI / continue to the TUI / 进入 TUI
         }
-        std::fprintf(stderr, "uso / usage / uso / 用法: kiutube2 --ytm search|play \"<query>\"\n");
+        std::fprintf(stderr, "uso / usage / uso / 用法: kiutube --ytm search|play \"<query>\"\n");
         return 2;
 }
 
@@ -382,14 +382,14 @@ struct Ui
                 }
 
                 buf.clear();
-                buf.put(1, 2, "kiutube2 - M3+viz / PT / EN / ES / ZH");
+                buf.put(1, 2, "kiutube - M3+viz / PT / EN / ES / ZH");
                 buf.put(3, 2, "PT: biblioteca fuzzy + letras + visualizadores");
                 buf.put(4, 2, "EN: fuzzy library + lyrics + visualizers");
                 buf.put(5, 2, "ES: biblioteca fuzzy + letras + visualizadores");
                 buf.put(6, 2, "ZH: \xe6\xa8\xa1\xe7\xb3\x8a\xe6\x90\x9c\xe7\xb4\xa2 + \xe6\xad\x8c\xe8\xaf\x8d + \xe5\x8f\xaf\xe8\xa7\x86\xe5\x8c\x96");
                 if (cur.path.empty())
                 {
-                        buf.put(8, 2, "kiutube2 play <arquivo / file / archivo / \xe6\x96\x87\xe4\xbb\xb6> ...   keys: l/g/v/p/i/c");
+                        buf.put(8, 2, "kiutube play <arquivo / file / archivo / \xe6\x96\x87\xe4\xbb\xb6> ...   keys: l/g/v/p/i/c");
                         buf.put(9, 2, "key " + last_key);
                 }
                 else
@@ -727,14 +727,14 @@ std::string sanitize_filename(const std::string &in)
 krt::Task<void> ytm_download_task(net::YtmResult track, audio::Engine &engine, Picker &picker,
                                   app::Settings &settings, std::vector<library::Track> &tracks, Ui *ui_for_rescan)
 {
-        // PT: destino: library_path se houver, senão ~/.cache/kiutube2/streams.
-        // EN: destination: library_path if set, else ~/.cache/kiutube2/streams.
+        // PT: destino: library_path se houver, senão ~/.cache/kiutube/streams.
+        // EN: destination: library_path if set, else ~/.cache/kiutube/streams.
         std::string dir = settings.library_path;
         if (dir.empty())
         {
                 std::string base = std::getenv("XDG_CACHE_HOME") ? std::getenv("XDG_CACHE_HOME")
                                                                  : std::string(std::getenv("HOME")) + "/.cache";
-                dir = base + "/kiutube2/streams";
+                dir = base + "/kiutube/streams";
         }
         const std::string base = dir + "/" + sanitize_filename(track.artist) + " - " +
                                  sanitize_filename(track.title) + " [" + track.video_id + "]";
@@ -798,14 +798,14 @@ krt::Task<void> fetch_lyrics_task(std::string artist, std::string title, int dur
 
 krt::Task<void> app_main(audio::Engine &engine, Ui &ui, std::atomic<bool> &alive)
 {
-        krt::log::info("boot: kiutube2 M4");
+        krt::log::info("boot: kiutube M4");
 
         app::Settings settings;
         app::BindingMap map;
         map.load_defaults();
         load_kewrc(app::config_dir("kew") / "kewrc", settings, map);
         script::LuaState lua;
-        lua.open_config((app::config_dir("kiutube2") / "init.lua").string(), settings, map);
+        lua.open_config((app::config_dir("kiutube") / "init.lua").string(), settings, map);
         ui.settings = settings;
 
         // PT: Scan da biblioteca em offload (I/O) antes de entrar no loop.
@@ -1192,7 +1192,7 @@ int main(int argc, char **argv)
         }
         catch (const std::exception &e)
         {
-                std::fprintf(stderr, "kiutube2: %s\n", e.what());
+                std::fprintf(stderr, "kiutube: %s\n", e.what());
                 return 1;
         }
 }

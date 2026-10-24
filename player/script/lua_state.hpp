@@ -1,16 +1,16 @@
-// PT: Wrapper sol2 do kiutube2 (pimpl: sol.hpp só entra no .cpp, protegendo
+// PT: Wrapper sol2 do kiutube (pimpl: sol.hpp só entra no .cpp, protegendo
 //     o tempo de compilação do resto). Expõe para o init.lua: bind(key,event),
 //     log(msg) e a tabela `settings` — populada e relida genericamente a
 //     partir dos descritores constexpr de app/settings.hpp.
-// EN: kiutube2 sol2 wrapper (pimpl: sol.hpp only enters the .cpp, protecting
+// EN: kiutube sol2 wrapper (pimpl: sol.hpp only enters the .cpp, protecting
 //     compile time for everything else). Exposes to init.lua: bind(key,event),
 //     log(msg) and the `settings` table — populated and read back generically
 //     from the constexpr descriptors in app/settings.hpp.
-// ES: Wrapper sol2 de kiutube2 (pimpl: sol.hpp solo entra en el .cpp,
+// ES: Wrapper sol2 de kiutube (pimpl: sol.hpp solo entra en el .cpp,
 //     protegiendo el tiempo de compilación del resto). Expone al init.lua:
 //     bind(key,event), log(msg) y la tabla `settings` — poblada y releída
 //     genéricamente desde los descriptores constexpr de app/settings.hpp.
-// ZH: kiutube2 的 sol2 包装（pimpl：sol.hpp 只在 .cpp 中引入，保护其余部分的
+// ZH: kiutube 的 sol2 包装（pimpl：sol.hpp 只在 .cpp 中引入，保护其余部分的
 //     编译时间）。向 init.lua 暴露：bind(key,event)、log(msg) 以及 `settings`
 //     表 —— 通过 app/settings.hpp 的 constexpr 描述符通用填充与回读。
 #pragma once

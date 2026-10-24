@@ -1,16 +1,16 @@
-// PT: Settings tipadas do kiutube2 — showcase de metaprogramação: a mesma
+// PT: Settings tipadas do kiutube — showcase de metaprogramação: a mesma
 //     tabela constexpr de descritores (nome + ponteiro-para-membro) alimenta
 //     o parse genérico do kewrc (apply_line) E a exposição genérica para Lua
 //     (script/lua_state.cpp). Adicionar um campo = adicionar uma linha na tupla.
-// EN: kiutube2 typed settings — metaprogramming showcase: the same constexpr
+// EN: kiutube typed settings — metaprogramming showcase: the same constexpr
 //     descriptor table (name + pointer-to-member) feeds both the generic
 //     kewrc parser (apply_line) AND the generic Lua exposure
 //     (script/lua_state.cpp). Adding a field = adding one tuple row.
-// ES: Settings tipadas de kiutube2 — showcase de metaprogramación: la misma
+// ES: Settings tipadas de kiutube — showcase de metaprogramación: la misma
 //     tabla constexpr de descriptores (nombre + puntero-a-miembro) alimenta
 //     el parse genérico del kewrc (apply_line) Y la exposición genérica a Lua
 //     (script/lua_state.cpp). Añadir un campo = añadir una fila a la tupla.
-// ZH: kiutube2 类型化 settings —— 元编程展示：同一份 constexpr 描述符表
+// ZH: kiutube 类型化 settings —— 元编程展示：同一份 constexpr 描述符表
 //     （名称 + 成员指针）同时驱动 kewrc 的通用解析（apply_line）与 Lua 的
 //     通用暴露（script/lua_state.cpp）。新增字段 = 在元组中加一行。
 #pragma once

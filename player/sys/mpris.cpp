@@ -135,7 +135,7 @@ Mpris::Mpris(audio::Engine &engine) : impl_(std::make_unique<Impl>(engine))
                 impl_->obj
                     ->addVTable(sdbus::registerProperty("CanQuit").withGetter([] { return false; }),
                                 sdbus::registerProperty("Identity")
-                                    .withGetter([] { return std::string("kiutube2"); }))
+                                    .withGetter([] { return std::string("kiutube"); }))
                     .forInterface(sdbus::InterfaceName(kRootIface));
 
                 // PT: Propriedades + métodos do Player (getters via lambdas — engine é

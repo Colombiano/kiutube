@@ -108,7 +108,7 @@ int main()
         // EN: Real on-disk scan: 2 tagless WAVs -> title = filename.
         // ES: Scan real en disco: 2 WAVs sin tags -> title = filename.
         // ZH: 真实磁盘扫描：2 个无标签 WAV -> title = 文件名。
-        const std::string dir = "/tmp/kiutube2_library_smoke";
+        const std::string dir = "/tmp/kiutube_library_smoke";
         std::filesystem::create_directories(dir);
         check(write_wav(dir + "/Alpha One.wav"), "escrever wav A");
         check(write_wav(dir + "/Beta Two.wav"), "escrever wav B");

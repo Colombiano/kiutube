@@ -52,8 +52,8 @@ std::optional<std::string> sidecar_thumb(const std::string &track_path)
         return std::nullopt;
 }
 
-// PT: Cache de capas extraídas: <xdg cache>/kiutube2/covers/<hash>.<ext>.
-// EN: Extracted cover cache: <xdg cache>/kiutube2/covers/<hash>.<ext>.
+// PT: Cache de capas extraídas: <xdg cache>/kiutube/covers/<hash>.<ext>.
+// EN: Extracted cover cache: <xdg cache>/kiutube/covers/<hash>.<ext>.
 // ES: Caché de carátulas extraídas. / ZH: 提取封面的缓存目录。
 std::filesystem::path covers_dir()
 {
@@ -64,7 +64,7 @@ std::filesystem::path covers_dir()
                 base = std::string(home) + "/.cache";
         else
                 base = ".";
-        return std::filesystem::path(base) / "kiutube2" / "covers";
+        return std::filesystem::path(base) / "kiutube" / "covers";
 }
 
 std::string ext_from_mime(const std::string &mime)

@@ -34,12 +34,12 @@ kew
 kiutube
 .vscode/
 
-# PT: build CMake do kiutube2 (C++20) e binários locais de teste.
-# EN: kiutube2 (C++20) CMake build dir and local test binaries.
-# ES: directorio de build CMake de kiutube2 (C++20) y binarios de prueba.
-# ZH: kiutube2（C++20）的 CMake 构建目录与本地测试二进制。
+# PT: build CMake do kiutube (C++20) e binários locais de teste.
+# EN: kiutube (C++20) CMake build dir and local test binaries.
+# ES: directorio de build CMake de kiutube (C++20) y binarios de prueba.
+# ZH: kiutube（C++20）的 CMake 构建目录与本地测试二进制。
 build/
-kiutube2
+kiutube
 scheduler_smoke
 error.log
 valgrind-out.txt

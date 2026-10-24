@@ -1,18 +1,18 @@
-// PT: Engine de áudio do kiutube2: device miniaudio (RAII) + ring lock-free
+// PT: Engine de áudio do kiutube: device miniaudio (RAII) + ring lock-free
 //     SPSC + feeder corrotina no scheduler. Gapless por construção: ao fim da
 //     faixa o feeder abre a próxima SEM parar o device — o ring nunca é drenado
 //     entre faixas. pause/next/seek/volume são thread-safe (mutex pequeno).
-// EN: kiutube2 audio engine: miniaudio device (RAII) + lock-free SPSC ring +
+// EN: kiutube audio engine: miniaudio device (RAII) + lock-free SPSC ring +
 //     scheduler coroutine feeder. Gapless by construction: at track end the
 //     feeder opens the next one WITHOUT stopping the device — the ring is
 //     never drained between tracks. pause/next/seek/volume are thread-safe
 //     (small mutex).
-// ES: Engine de audio de kiutube2: device miniaudio (RAII) + ring lock-free
+// ES: Engine de audio de kiutube: device miniaudio (RAII) + ring lock-free
 //     SPSC + feeder corrutina en el scheduler. Gapless por construcción: al
 //     final de la pista el feeder abre la siguiente SIN parar el device — el
 //     ring nunca se drena entre pistas. pause/next/seek/volume son
 //     thread-safe (mutex pequeño).
-// ZH: kiutube2 音频引擎：miniaudio 设备（RAII）+ lock-free SPSC 环形缓冲 +
+// ZH: kiutube 音频引擎：miniaudio 设备（RAII）+ lock-free SPSC 环形缓冲 +
 //     调度器协程 feeder。按构造实现 gapless：曲目结束时 feeder 打开下一首
 //     而不停止设备 —— 曲目之间环形缓冲不被排空。pause/next/seek/volume
 //     线程安全（小互斥锁）。

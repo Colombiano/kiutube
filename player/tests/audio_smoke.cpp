@@ -78,7 +78,7 @@ bool write_wav(const std::string &path)
 
 int main()
 {
-        const std::string path = "/tmp/kiutube2_audio_smoke.wav";
+        const std::string path = "/tmp/kiutube_audio_smoke.wav";
         check(write_wav(path), "escrever wav / write wav / escribir wav / 写 WAV");
 
         audio::MaDecoder dec;

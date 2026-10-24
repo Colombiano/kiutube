@@ -21,7 +21,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y build-essential cmake pkg-config
 
       - name: Install dependencies
-        # PT: deps do kiutube2 (reescrita C++20): Lua 5.4 (sol2), taglib,
+        # PT: deps do kiutube (reescrita C++20): Lua 5.4 (sol2), taglib,
         #     curl, opus/opusfile, vorbis/ogg, chafa (capa TUI). Qt 6 e
         #     sdbus-c++ são opcionais (stub/FetchContent).
         run: sudo apt install -y liblua5.4-dev libtag1-dev libcurl4-openssl-dev libopus-dev libopusfile-dev libvorbis-dev libogg-dev libchafa-dev

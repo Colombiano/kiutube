@@ -1,16 +1,16 @@
-// PT: Scheduler de corrotinas do kiutube2: substitui o loop GLib do kew
+// PT: Scheduler de corrotinas do kiutube: substitui o loop GLib do kew
 //     (g_timeout_add + GIOChannel). Run-loop epoll com: heap de timers,
 //     eventfd para wake thread-safe e fds de I/O. Invariante central: NENHUMA
 //     corrotina retoma fora da thread do run-loop (krt::complete -> post).
-// EN: kiutube2 coroutine scheduler: replaces kew's GLib loop (g_timeout_add +
+// EN: kiutube coroutine scheduler: replaces kew's GLib loop (g_timeout_add +
 //     GIOChannel). epoll run-loop with: timer heap, thread-safe eventfd wake
 //     and I/O fds. Central invariant: NO coroutine ever resumes outside the
 //     run-loop thread (krt::complete -> post).
-// ES: Scheduler de corrutinas de kiutube2: reemplaza el loop GLib de kew
+// ES: Scheduler de corrutinas de kiutube: reemplaza el loop GLib de kew
 //     (g_timeout_add + GIOChannel). Run-loop epoll con: heap de timers,
 //     eventfd para wake thread-safe y fds de E/S. Invariante central: NINGUNA
 //     corrutina retoma fuera del hilo del run-loop (krt::complete -> post).
-// ZH: kiutube2 协程调度器：替代 kew 的 GLib 主循环（g_timeout_add +
+// ZH: kiutube 协程调度器：替代 kew 的 GLib 主循环（g_timeout_add +
 //     GIOChannel）。基于 epoll 的 run-loop：定时器堆、线程安全的 eventfd
 //     唤醒以及 I/O fd。核心不变式：任何协程都不会在 run-loop 线程之外恢复
 //     （krt::complete -> post）。

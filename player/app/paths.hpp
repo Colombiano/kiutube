@@ -1,11 +1,11 @@
 // PT: Resolução de diretórios de config (XDG). Usado para ler o kewrc legado
-//     (~/.config/kew) e o init.lua do kiutube2 (~/.config/kiutube2).
+//     (~/.config/kew) e o init.lua do kiutube (~/.config/kiutube).
 // EN: Config directory resolution (XDG). Used to read the legacy kewrc
-//     (~/.config/kew) and kiutube2's init.lua (~/.config/kiutube2).
+//     (~/.config/kew) and kiutube's init.lua (~/.config/kiutube).
 // ES: Resolución de directorios de config (XDG). Usado para leer el kewrc
-//     legado (~/.config/kew) y el init.lua de kiutube2 (~/.config/kiutube2).
-// ZH: 配置目录解析（XDG）。用于读取旧的 kewrc（~/.config/kew）与 kiutube2 的
-//     init.lua（~/.config/kiutube2）。
+//     legado (~/.config/kew) y el init.lua de kiutube (~/.config/kiutube).
+// ZH: 配置目录解析（XDG）。用于读取旧的 kewrc（~/.config/kew）与 kiutube 的
+//     init.lua（~/.config/kiutube）。
 #pragma once
 
 #include <cstdlib>

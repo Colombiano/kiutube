@@ -1,13 +1,13 @@
-// PT: Logging mínimo do kiutube2 (stderr, com timestamp e nível). Convenção:
+// PT: Logging mínimo do kiutube (stderr, com timestamp e nível). Convenção:
 //     logs internos ficam em EN (audiência = desenvolvedor); nível vem de
 //     KIUTUBE2_LOG=debug|info|warn|error (padrão: warn).
-// EN: Minimal kiutube2 logging (stderr, timestamped, leveled). Convention:
+// EN: Minimal kiutube logging (stderr, timestamped, leveled). Convention:
 //     internal logs stay in EN (audience = developer); level comes from
 //     KIUTUBE2_LOG=debug|info|warn|error (default: warn).
-// ES: Logging mínimo de kiutube2 (stderr, con timestamp y nivel). Convención:
+// ES: Logging mínimo de kiutube (stderr, con timestamp y nivel). Convención:
 //     logs internos quedan en EN (audiencia = desarrollador); el nivel viene
 //     de KIUTUBE2_LOG=debug|info|warn|error (por defecto: warn).
-// ZH: kiutube2 的最小日志（stderr，带时间戳与级别）。约定：内部日志使用英文（受众
+// ZH: kiutube 的最小日志（stderr，带时间戳与级别）。约定：内部日志使用英文（受众
 //     为开发者）；级别由 KIUTUBE2_LOG=debug|info|warn|error 控制（默认 warn）。
 #pragma once
 
@@ -76,7 +76,7 @@ void write(Level lv, std::format_string<A...> fmt, A &&...args)
         const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
         char tbuf[16] = {0};
         std::strftime(tbuf, sizeof(tbuf), "%H:%M:%S", std::localtime(&t));
-        const std::string line = std::format("[kiutube2 {}.{:03d} {}] {}", tbuf,
+        const std::string line = std::format("[kiutube {}.{:03d} {}] {}", tbuf,
                                              static_cast<int>(ms.count()), level_name(lv),
                                              std::format(fmt, std::forward<A>(args)...));
         std::fprintf(stderr, "%s\n", line.c_str());

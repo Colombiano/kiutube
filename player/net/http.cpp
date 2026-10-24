@@ -32,7 +32,7 @@ class CurlHandle
         {
                 if (!h_)
                         throw std::runtime_error("curl_easy_init failed");
-                curl_easy_setopt(h_, CURLOPT_USERAGENT, "kiutube2/1.0 (+libcurl)");
+                curl_easy_setopt(h_, CURLOPT_USERAGENT, "kiutube/1.0 (+libcurl)");
                 curl_easy_setopt(h_, CURLOPT_FOLLOWLOCATION, 1L);
                 curl_easy_setopt(h_, CURLOPT_MAXREDIRS, 5L);
                 curl_easy_setopt(h_, CURLOPT_ACCEPT_ENCODING, "gzip");

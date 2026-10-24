@@ -2,20 +2,20 @@
 //     1) sidecar de thumbnail do yt-dlp (base.<ext> ao lado da faixa —
 //        escrito no download YTM desde o M4h);
 //     2) imagem embutida extraída via taglib (mp3/ID3v2 APIC, flac, m4a)
-//        para cache (~/.cache/kiutube2/covers/), reutilizável.
+//        para cache (~/.cache/kiutube/covers/), reutilizável.
 //     Faixas YTM em cache antigo (sem thumb) simplesmente ficam sem capa.
 // EN: Album art for the GUI window. Two sources, in this order:
 //     1) yt-dlp thumbnail sidecar (base.<ext> next to the track — written
 //        at YTM download since M4h);
 //     2) embedded image extracted via taglib (mp3/ID3v2 APIC, flac, m4a)
-//        into a cache (~/.cache/kiutube2/covers/), reusable.
+//        into a cache (~/.cache/kiutube/covers/), reusable.
 //     Old YTM caches (no thumb) simply have no cover.
 // ES: Carátula para la ventana gráfica. Dos fuentes: sidecar de miniatura
 //     del yt-dlp e imagen embebida vía taglib (mp3/flac/m4a) en caché.
 // ZH: 图形窗口的专辑封面。两个来源，按序：1) yt-dlp 缩略图 sidecar
 //     （曲目旁的 base.<ext> —— M4h 起随 YTM 下载写入）；2) 经 taglib
 //     提取的内嵌图片（mp3/ID3v2 APIC、flac、m4a）到缓存
-//     （~/.cache/kiutube2/covers/），可复用。旧 YTM 缓存（无缩略图）
+//     （~/.cache/kiutube/covers/），可复用。旧 YTM 缓存（无缩略图）
 //     仅无封面。
 #pragma once
 

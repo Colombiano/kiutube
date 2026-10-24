@@ -1,15 +1,15 @@
-// PT: Camada de cor do kiutube2: RGB 24-bit, LUT inferno EXATA do
+// PT: Camada de cor do kiutube: RGB 24-bit, LUT inferno EXATA do
 //     matplotlib (256 paradas, BSD — dados embutidos com atribuição),
 //     detecção de truecolor, quantização para o cubo 256 e dithering
 //     ordenado Bayer 4x4 para terminais sem cor direta.
-// EN: kiutube2 color layer: 24-bit RGB, EXACT matplotlib inferno LUT (256
+// EN: kiutube color layer: 24-bit RGB, EXACT matplotlib inferno LUT (256
 //     stops, BSD — embedded data with attribution), truecolor detection,
 //     256-cube quantization and ordered Bayer 4x4 dithering for terminals
 //     without direct color.
-// ES: Capa de color de kiutube2: RGB 24-bit, LUT inferno EXACTA de
+// ES: Capa de color de kiutube: RGB 24-bit, LUT inferno EXACTA de
 //     matplotlib (256 paradas, BSD), detección de truecolor, cuantización
 //     al cubo 256 y dithering ordenado Bayer 4x4.
-// ZH: kiutube2 颜色层：24-bit RGB、matplotlib inferno 精确 LUT（256 档，
+// ZH: kiutube 颜色层：24-bit RGB、matplotlib inferno 精确 LUT（256 档，
 //     BSD —— 内嵌数据并署名）、truecolor 检测、256 色立方量化，以及面向
 //     不支持直接色终端的 Bayer 4x4 有序抖动。
 #pragma once
