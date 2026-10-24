@@ -3,13 +3,13 @@
 **[Português](#português) · [English](#english) · [Español](#español) · [中文](#中文)**
 
 > Fork do [kew](https://github.com/ravachol/kew) (player de música para
-> terminal, ravachol, GPL-2) com camada própria de YouTube Music, letras
-> sincronizadas e tradução automática — e uma **reescrita C++20 em
-> andamento**. / Fork of kew with a YouTube Music layer, synced lyrics and
-> auto-translation — plus an **ongoing C++20 rewrite**. / Fork de kew con
-> capa de YouTube Music, letras sincronizadas y traducción automática — más
-> una **reescritura C++20 en marcha**. / 基于 kew 的 fork，带 YouTube Music
-> 层、同步歌词与自动翻译 —— 外加**进行中的 C++20 重写**。
+> terminal, ravachol, GPL-2) com YouTube Music (yt-dlp), letras sincronizadas
+> e tradução automática — **reescrito em C++20** (M0–M5 ✅). / Fork of kew
+> with YouTube Music (yt-dlp), synced lyrics and auto-translation —
+> **rewritten in C++20** (M0–M5 ✅). / Fork de kew con YouTube Music
+> (yt-dlp), letras sincronizadas y traducción automática — **reescrito en
+> C++20** (M0–M5 ✅). / 基于 kew 的 fork，带 YouTube Music（yt-dlp）、同步
+> 歌词与自动翻译 —— **已用 C++20 重写**（M0–M5 ✅）。
 
 ---
 
@@ -17,18 +17,14 @@
 
 ### O que é
 
-O kiutube tem duas linhas de código convivendo:
-
-- **`kiutube`** (binário C, build via `Makefile`) — o player completo hoje:
-  fork do kew com a camada ytm (`src/ytm/`, C++20) que adiciona streaming do
-  YouTube Music via yt-dlp, letras sincronizadas do LRCLIB (também para
-  faixas locais) e tradução automática das letras para português. Detalhes em
-  [README-YTM.md](README-YTM.md).
-- **`kiutube`** (binário C++20, build via `CMake`) — a reescrita greenfield
-  do player em C++20 puro: corrotinas próprias, metaprogramação, Lua e
-  testes PTY. Progresso: **M0 ✅ M1 ✅ M2 ✅** (scheduler, configuração,
-  engine de áudio com gapless). Roadmap em
-  [docs/CPP20-REWRITE.md](docs/CPP20-REWRITE.md).
+O kiutube é o player de terminal (fork do kew) reescrito em C++20 puro:
+corrotinas próprias, metaprogramação, configuração em Lua e testes PTY.
+Streaming do YouTube Music via yt-dlp, letras sincronizadas do LRCLIB com
+tradução automática, busca fuzzy de biblioteca, visualizadores FFT,
+janela gráfica (Qt) e MPRIS. A reescrita está completa
+(**M0 ✅ … M5 ✅** — o C legado saiu do repositório). Roadmap em
+[docs/CPP20-REWRITE.md](docs/CPP20-REWRITE.md); detalhes da camada ytm em
+[README-YTM.md](README-YTM.md).
 
 ### Recursos (kiutube)
 
@@ -43,19 +39,33 @@ O kiutube tem duas linhas de código convivendo:
 | Config em Lua | `~/.config/kiutube/init.lua` |
 | CLI headless | `kiutube --ytm search|play|lyrics ...` |
 
-### Compilar
+### Instalar via GitHub
 
 ```bash
-# kiutube (C + camada ytm)
-sudo apt install libopusfile-dev libvorbis-dev libogg-dev libtag1-dev \
-                 libchafa-dev libgdk-pixbuf-2.0-dev libcurl4-openssl-dev \
-                 libfaad-dev liblua5.4-dev
-make -j$(nproc)
+# 1. Clonar o repositório
+git clone https://github.com/Colombiano/kiutube.git
+cd kiutube
 
-# kiutube (reescrita C++20)
-cmake -B build && cmake --build build -j16
-ctest --test-dir build
+# 2. Dependências (Debian/Ubuntu; 'git' e rede são necessários —
+#    sol2/pocketfft/magic_enum/sdbus-c++ vêm via FetchContent)
+sudo apt install build-essential cmake git pkg-config \
+                 liblua5.4-dev libtag1-dev libcurl4-openssl-dev \
+                 libopus-dev libopusfile-dev libvorbis-dev libogg-dev \
+                 libchafa-dev
+
+# 3. Compilar e testar
+cmake -B build && cmake --build build -j$(nproc)
+ctest --test-dir build          # opcional: smoke tests
+
+# 4. Usar (ou instalar no PATH)
+./build/kiutube play ~/musica/faixa.flac
+sudo install -m 0755 build/kiutube /usr/local/bin/kiutube
 ```
+
+Opcionais detectados no configure: Qt 6 Widgets (janela gráfica dos
+visualizadores) e `yt-dlp` no PATH (busca/download do YouTube Music,
+tecla F8 / CLI `--ytm`) — sem eles, o kiutube compila e roda igual, com
+essas partes desabilitadas.
 
 ### Licença e créditos
 
@@ -69,17 +79,14 @@ pocketfft, magic_enum.
 
 ### What it is
 
-kiutube has two code lines coexisting:
-
-- **`kiutube`** (C binary, built via `Makefile`) — the complete player today:
-  a kew fork with the ytm layer (`src/ytm/`, C++20) adding YouTube Music
-  streaming via yt-dlp, synced lyrics from LRCLIB (also for local tracks) and
-  automatic lyric translation to Portuguese. See
-  [README-YTM.md](README-YTM.md).
-- **`kiutube`** (C++20 binary, built via `CMake`) — the greenfield rewrite
-  in pure C++20: own coroutines, metaprogramming, Lua and PTY tests.
-  Progress: **M0 ✅ M1 ✅ M2 ✅** (scheduler, configuration, gapless audio
-  engine). Roadmap in [docs/CPP20-REWRITE.md](docs/CPP20-REWRITE.md).
+kiutube is the terminal music player (a kew fork) rewritten in pure C++20:
+own coroutines, metaprogramming, Lua configuration and PTY tests. YouTube
+Music streaming via yt-dlp, synced LRCLIB lyrics with automatic
+translation, fuzzy library search, FFT visualizers, a GUI window (Qt) and
+MPRIS. The rewrite is complete (**M0 ✅ … M5 ✅** — the legacy C left the
+repository). Roadmap in
+[docs/CPP20-REWRITE.md](docs/CPP20-REWRITE.md); ytm layer details in
+[README-YTM.md](README-YTM.md).
 
 ### Features (kiutube)
 
@@ -94,19 +101,33 @@ kiutube has two code lines coexisting:
 | Lua config | `~/.config/kiutube/init.lua` |
 | Headless CLI | `kiutube --ytm search|play|lyrics ...` |
 
-### Building
+### Installing from GitHub
 
 ```bash
-# kiutube (C + ytm layer)
-sudo apt install libopusfile-dev libvorbis-dev libogg-dev libtag1-dev \
-                 libchafa-dev libgdk-pixbuf-2.0-dev libcurl4-openssl-dev \
-                 libfaad-dev liblua5.4-dev
-make -j$(nproc)
+# 1. Clone the repository
+git clone https://github.com/Colombiano/kiutube.git
+cd kiutube
 
-# kiutube (C++20 rewrite)
-cmake -B build && cmake --build build -j16
-ctest --test-dir build
+# 2. Dependencies (Debian/Ubuntu; 'git' and network access are needed —
+#    sol2/pocketfft/magic_enum/sdbus-c++ come via FetchContent)
+sudo apt install build-essential cmake git pkg-config \
+                 liblua5.4-dev libtag1-dev libcurl4-openssl-dev \
+                 libopus-dev libopusfile-dev libvorbis-dev libogg-dev \
+                 libchafa-dev
+
+# 3. Build and test
+cmake -B build && cmake --build build -j$(nproc)
+ctest --test-dir build          # optional: smoke tests
+
+# 4. Run (or install to PATH)
+./build/kiutube play ~/music/track.flac
+sudo install -m 0755 build/kiutube /usr/local/bin/kiutube
 ```
+
+Optional, detected at configure time: Qt 6 Widgets (the visualizer GUI
+window) and `yt-dlp` on PATH (YouTube Music search/download, F8 key / `--ytm`
+CLI) — without them kiutube builds and runs fine, with those parts
+disabled.
 
 ### License and credits
 
@@ -120,18 +141,14 @@ magic_enum.
 
 ### Qué es
 
-kiutube tiene dos líneas de código conviviendo:
-
-- **`kiutube`** (binario C, build vía `Makefile`) — el player completo hoy:
-  fork de kew con la capa ytm (`src/ytm/`, C++20) que añade streaming de
-  YouTube Music vía yt-dlp, letras sincronizadas de LRCLIB (también para
-  pistas locales) y traducción automática de letras al portugués. Detalles en
-  [README-YTM.md](README-YTM.md).
-- **`kiutube`** (binario C++20, build vía `CMake`) — la reescritura
-  greenfield en C++20 puro: corrutinas propias, metaprogramación, Lua y
-  pruebas PTY. Progreso: **M0 ✅ M1 ✅ M2 ✅** (scheduler, configuración,
-  motor de audio gapless). Roadmap en
-  [docs/CPP20-REWRITE.md](docs/CPP20-REWRITE.md).
+kiutube es el reproductor de terminal (fork de kew) reescrito en C++20
+puro: corrutinas propias, metaprogramación, configuración en Lua y pruebas
+PTY. Streaming de YouTube Music vía yt-dlp, letras sincronizadas de LRCLIB
+con traducción automática, búsqueda fuzzy de biblioteca, visualizadores
+FFT, ventana gráfica (Qt) y MPRIS. La reescritura está completa
+(**M0 ✅ … M5 ✅** — el C legado salió del repositorio). Roadmap en
+[docs/CPP20-REWRITE.md](docs/CPP20-REWRITE.md); detalles de la capa ytm en
+[README-YTM.md](README-YTM.md).
 
 ### Características (kiutube)
 
@@ -146,19 +163,33 @@ kiutube tiene dos líneas de código conviviendo:
 | Config en Lua | `~/.config/kiutube/init.lua` |
 | CLI headless | `kiutube --ytm search|play|lyrics ...` |
 
-### Compilar
+### Instalar desde GitHub
 
 ```bash
-# kiutube (C + capa ytm)
-sudo apt install libopusfile-dev libvorbis-dev libogg-dev libtag1-dev \
-                 libchafa-dev libgdk-pixbuf-2.0-dev libcurl4-openssl-dev \
-                 libfaad-dev liblua5.4-dev
-make -j$(nproc)
+# 1. Clonar el repositorio
+git clone https://github.com/Colombiano/kiutube.git
+cd kiutube
 
-# kiutube (reescritura C++20)
-cmake -B build && cmake --build build -j16
-ctest --test-dir build
+# 2. Dependencias (Debian/Ubuntu; hacen falta 'git' y red —
+#    sol2/pocketfft/magic_enum/sdbus-c++ llegan vía FetchContent)
+sudo apt install build-essential cmake git pkg-config \
+                 liblua5.4-dev libtag1-dev libcurl4-openssl-dev \
+                 libopus-dev libopusfile-dev libvorbis-dev libogg-dev \
+                 libchafa-dev
+
+# 3. Compilar y probar
+cmake -B build && cmake --build build -j$(nproc)
+ctest --test-dir build          # opcional: smoke tests
+
+# 4. Usar (o instalar en el PATH)
+./build/kiutube play ~/musica/pista.flac
+sudo install -m 0755 build/kiutube /usr/local/bin/kiutube
 ```
+
+Opcionales, detectados en el configure: Qt 6 Widgets (ventana gráfica de
+los visualizadores) y `yt-dlp` en el PATH (búsqueda/descarga de YouTube
+Music, tecla F8 / CLI `--ytm`) — sin ellos, kiutube compila y funciona
+igual, con esas partes deshabilitadas.
 
 ### Licencia y créditos
 
@@ -172,16 +203,12 @@ pocketfft, magic_enum.
 
 ### 简介
 
-kiutube 目前有两条并存的代码线：
-
-- **`kiutube`**（C 二进制，`Makefile` 构建）—— 今天可用的完整播放器：
-  kew 的 fork，带 ytm 层（`src/ytm/`，C++20），通过 yt-dlp 实现
-  YouTube Music 流媒体、LRCLIB 同步歌词（也支持本地曲目）以及歌词的
-  葡萄牙语自动翻译。详见 [README-YTM.md](README-YTM.md)。
-- **`kiutube`**（C++20 二进制，`CMake` 构建）—— 纯 C++20 的 greenfield
-  重写：自研协程、元编程、Lua 与 PTY 测试。进度：**M0 ✅ M1 ✅ M2 ✅**
-  （调度器、配置、gapless 音频引擎）。路线图见
-  [docs/CPP20-REWRITE.md](docs/CPP20-REWRITE.md)。
+kiutube 是用纯 C++20 重写的终端音乐播放器（kew 的 fork）：自研协程、
+元编程、Lua 配置与 PTY 测试。通过 yt-dlp 实现 YouTube Music 流媒体、
+LRCLIB 同步歌词与自动翻译、曲库模糊搜索、FFT 可视化器、图形窗口
+（Qt）以及 MPRIS。重写已完成（**M0 ✅ … M5 ✅** —— 旧 C 代码已离开
+仓库）。路线图见 [docs/CPP20-REWRITE.md](docs/CPP20-REWRITE.md)；ytm 层
+详情见 [README-YTM.md](README-YTM.md)。
 
 ### 功能（kiutube）
 
@@ -196,19 +223,32 @@ kiutube 目前有两条并存的代码线：
 | Lua 配置 | `~/.config/kiutube/init.lua` |
 | 无头 CLI | `kiutube --ytm search|play|lyrics ...` |
 
-### 构建
+### 从 GitHub 安装
 
 ```bash
-# kiutube（C + ytm 层）
-sudo apt install libopusfile-dev libvorbis-dev libogg-dev libtag1-dev \
-                 libchafa-dev libgdk-pixbuf-2.0-dev libcurl4-openssl-dev \
-                 libfaad-dev liblua5.4-dev
-make -j$(nproc)
+# 1. 克隆仓库
+git clone https://github.com/Colombiano/kiutube.git
+cd kiutube
 
-# kiutube（C++20 重写）
-cmake -B build && cmake --build build -j16
-ctest --test-dir build
+# 2. 依赖（Debian/Ubuntu；需要 git 与网络 —— sol2/pocketfft/
+#    magic_enum/sdbus-c++ 通过 FetchContent 获取）
+sudo apt install build-essential cmake git pkg-config \
+                 liblua5.4-dev libtag1-dev libcurl4-openssl-dev \
+                 libopus-dev libopusfile-dev libvorbis-dev libogg-dev \
+                 libchafa-dev
+
+# 3. 编译并测试
+cmake -B build && cmake --build build -j$(nproc)
+ctest --test-dir build          # 可选：冒烟测试
+
+# 4. 运行（或安装到 PATH）
+./build/kiutube play ~/music/track.flac
+sudo install -m 0755 build/kiutube /usr/local/bin/kiutube
 ```
+
+可选项（configure 时自动检测）：Qt 6 Widgets（可视化器图形窗口）与
+PATH 中的 `yt-dlp`（YouTube Music 搜索/下载，F8 键 / `--ytm` CLI）——
+没有它们 kiutube 照常编译运行，仅这些功能被禁用。
 
 ### 许可与致谢
 

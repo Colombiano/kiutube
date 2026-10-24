@@ -1,5 +1,14 @@
 # Kiutube — fork do kew com YouTube Music, letras e tradução PT
 
+> **PT:** doc histórico da ponte C `src/ytm/` — removida no marco M5; a
+> funcionalidade ytm vive agora em `player/net/ytm` (reescrita C++20).
+> **EN:** historical doc of the `src/ytm/` C bridge — removed at milestone
+> M5; the ytm feature now lives in `player/net/ytm` (C++20 rewrite).
+> **ES:** documento histórico del puente C `src/ytm/` — eliminado en el hito
+> M5; la funcionalidad ytm vive ahora en `player/net/ytm`.
+> **ZH:** `src/ytm/` C 桥接层的历史文档 —— 已在 M5 移除；ytm 功能现位于
+> `player/net/ytm`（C++20 重写）。
+
 Fork do [kew](https://github.com/ravachol/kew) (ravachol, GPL-2) com uma camada
 C++20 (`src/ytm/`) que agrega o que o ytm-player propicia — streaming do
 YouTube Music e letras — mais **tradução automática das letras para português**.
