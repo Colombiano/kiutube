@@ -213,6 +213,35 @@ char *ytm_resolve_stream_blocking(const char *video_id)
         }
 }
 
+/* kiutube: download pode demorar minutos; o path é copiado p/ malloc antes de retornar */
+char *ytm_download_track_blocking(const char *video_id, const char *dest_base)
+{
+        try
+        {
+                return dup_cstr(ytm::download_track(video_id ? video_id : "", dest_base ? dest_base : "").sync_wait());
+        }
+        catch (...)
+        {
+                return nullptr;
+        }
+}
+
+/* kiutube: destino dos downloads TUI, combinando com ytm_cli.cpp (cache_streams_dir) */
+char *ytm_default_cache_dir(void)
+{
+        try
+        {
+                std::string dir = ytm::config().cache_dir + "/streams";
+                std::error_code ec;
+                std::filesystem::create_directories(dir, ec);
+                return dup_cstr(dir);
+        }
+        catch (...)
+        {
+                return nullptr;
+        }
+}
+
 /** Limpa título p/ busca de letras: corta sufixos "(...)", "[...]", "| ...". */
 std::string clean_title_for_lyrics(const char *title)
 {

@@ -25,11 +25,14 @@ kew --ytm lyrics "Bee Gees" "Songbird"   # LRC original + tradução PT
 
 # Na TUI
 m          # página de letras (como no kew vanilla)
+F8         # prompt de busca no YouTube Music; Enter no resultado baixa e toca
 F9         # alterna letra original <-> traduzida (quando há tradução)
 ```
 
-Faixas YTM baixadas vão para `~/.cache/kiutube/streams/`, com `.lrc`
-(original) e `.pt.lrc` (traduzido) lado a lado — o kew acha sozinho.
+Faixas YTM baixadas vão para `~/.cache/kiutube/streams/`. O `load_meta_data()`
+do kew já busca letra no LRCLIB (com tradução PT) sozinho, então não são
+escritos sidecars `.lrc` — a não ser pelo `--ytm play`, que mantém o
+comportamento antigo (`.lrc`/`.pt.lrc` lado a lado).
 Se o `path=` do `~/.config/kew/kewrc` estiver vazio, o `--ytm play` aponta
 ele automaticamente para esse diretório (evita o prompt "Type a path:" e o
 cache vira navegável na library view).
@@ -43,13 +46,14 @@ translation_enabled = true
 translation_target  = "pt"
 translation_engine  = "google"   -- "google" (cadeia) | "mymemory"
 translation_source  = "auto"     -- MyMemory resolve "auto" -> "en"
-search_key              = "F8"   -- reservado (integração TUI futura)
+search_key              = "F8"   -- tecla do prompt de busca TUI (padrão F8)
 toggle_translation_key  = "F9"
 cache_dir = getenv("HOME") .. "/.cache/kiutube"
 ```
 
-Variáveis ausentes caem nos defaults. Teclas também são configuráveis pelo
-`kewrc` como `toggleTranslation=` (binding nativa adicionada ao kew).
+Variáveis ausentes caem nos defaults. As teclas em si são configuráveis pelo
+`kewrc` como bindings nativas (`bind=F8,ytmSearch`, `bind=F9,toggleTranslation`);
+`search_key`/`toggle_translation_key` são espelhos lidos pela camada ytm.
 
 ## Arquitetura da camada C++20 (`src/ytm/`)
 
@@ -79,6 +83,11 @@ Variáveis ausentes caem nos defaults. Teclas também são configuráveis pelo
   (com tradução) + sidecar `<base>.pt.lrc`; free/copy dos dois ponteiros.
 - `src/common/events.h`, `src/ui/settings.c`, `src/update/update.c` —
   `MSG_TOGGLETRANSLATION` + binding default F9 (swap de ponteiros).
+- `src/ops/ytm_ops.c` — busca/download YTM da TUI (F8): threads detached +
+  flags consumidas no tick (padrão de `library_ops.c`); entry standalone do
+  arquivo baixado ancorada em `Model.ytm_fs_anchor` e liberada no shutdown.
+- `src/ytm/ytm_bridge.h/.cpp` — `ytm_download_track_blocking()` e
+  `ytm_default_cache_dir()` (cria `<cache_dir>/streams`, destino do CLI).
 - `Makefile` — `YTM_*` sources/flags/libs (`libcurl`, `lua5.4`).
 
 ## Notas e limitações
@@ -92,12 +101,14 @@ Variáveis ausentes caem nos defaults. Teclas também são configuráveis pelo
   (resolve+download consistentes), com 3 tentativas externas. Em redes
   lentas (~30-40 KB/s) faixas demoram alguns minutos — paciência.
 - **Capa**: faixas YTM não têm capa embutida (stream cru). Letras e título
-  vêm do nome do arquivo / `.lrc`.
+  vêm do nome do arquivo / LRCLIB.
 - **Google Translate** pode rate-limitar por IP; o fallback MyMemory assume
   (source `en` quando `auto`). Traduções ficam em cache — cada música é
   traduzida uma vez só.
-- A busca YTM **dentro** da TUI (tecla F8 com prompt) fica pra fase 3, junto
-  com a reescrita 100% C++20 do player.
+- Na busca TUI (F8), digitar não filtra os resultados YTM em tempo real
+  (a lista é estática até a próxima busca); ESC fecha os resultados e volta
+  à view anterior, e o download roda em background — dá p/ continuar usando
+  o player enquanto isso.
 
 ## Build
 

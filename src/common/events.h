@@ -72,7 +72,8 @@ enum MsgType {
         MSG_TOGGLECROSSFADE,
         MSG_PLAY,
         MSG_MINICONTROLS_SET,
-        MSG_TOGGLETRANSLATION /* kew-ytm: alterna letra original/traduzida (F9) */
+        MSG_TOGGLETRANSLATION, /* kew-ytm: alterna letra original/traduzida (F9) */
+        MSG_YTMSEARCH /* kiutube: abre prompt de busca no YouTube Music (F8) */
 };
 
 typedef struct

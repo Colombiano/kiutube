@@ -8,6 +8,7 @@
 
 #include "common/appstate.h"
 #include "common/model.h"
+#include "data/directorytree.h"
 #include "utils/file.h"
 #include "utils/term.h"
 #include "utils/utils.h"
@@ -346,6 +347,17 @@ void model_init(void)
         model.title_delay.active = false;
 
         model.search_results = NULL;
+        model.ytm_searching = false; /* kiutube */
+        model.ytm_results_ready = false;
+        model.ytm_results_active = false;
+        model.ytm_downloading = false;
+        model.ytm_download_ready = false;
+        model.ytm_results_count = 0;
+        model.ytm_query[0] = '\0';
+        model.ytm_downloaded_path[0] = '\0';
+        model.ytm_fs_anchor = NULL;
+        model.state.ui.ytm_search_prompt = false;
+        model.state.ui.ytm_search_text[0] = '\0';
         model.state.ui.chosen_search_dir = NULL;
         model.state.ui.current_search_entry = NULL;
         model.state.ui.current_lib_entry = NULL;
@@ -403,6 +415,8 @@ void mutexes_shutdown(void)
 
 void model_shutdown(void)
 {
+        Model *model = get_model();
+        free_tree(model->ytm_fs_anchor); /* kiutube: entries standalone do download YTM */
         mutexes_shutdown();
         playlists_shutdown();
 }

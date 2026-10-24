@@ -479,6 +479,7 @@ typedef struct
 
         char search_text[MAX_SEARCH_LEN * 4 + 1]; // Unicode can be 4 characters
         char playlist_name[MAX_PLAYLIST_NAME_LEN * 4 + 1];
+        char ytm_search_text[64]; /* kiutube: query sendo digitada no prompt F8 */
 
         FileSystemEntry *current_lib_entry;
         FileSystemEntry *current_search_entry;
@@ -543,6 +544,7 @@ typedef struct
         bool rendered;
         bool resumed_in_background;
         bool naming_playlist;
+        bool ytm_search_prompt; /* kiutube: prompt de busca YTM aberto (F8) */
         bool play_pause_toggled;
         bool last_pause_state;
         bool last_stop_state;
@@ -802,6 +804,16 @@ typedef struct SearchResult {
         int num_children;
 } SearchResult;
 
+/* kiutube: resultado de busca no YouTube Music (cópia C de YtmTrack) */
+typedef struct {
+        char video_id[16];
+        char title[128];
+        char artist[128];
+        int duration; ///< segundos; 0 = desconhecida
+} YtmSearchResult;
+
+#define YTM_MAX_RESULTS 10
+
 typedef struct Model {
         AppState state;
         AppSettings settings;
@@ -860,6 +872,18 @@ typedef struct Model {
         AnimationState name_scroll;
 
         SearchResult *search_results;
+
+        /* kiutube: busca/download YouTube Music (F8) */
+        bool ytm_searching;
+        bool ytm_results_ready;
+        bool ytm_results_active;
+        bool ytm_downloading;
+        bool ytm_download_ready;
+        int ytm_results_count;
+        YtmSearchResult ytm_results[YTM_MAX_RESULTS];
+        char ytm_query[64];
+        char ytm_downloaded_path[KEW_PATH_MAX];
+        FileSystemEntry *ytm_fs_anchor; /* entries standalone p/ free no shutdown */
 
         int tick;
 

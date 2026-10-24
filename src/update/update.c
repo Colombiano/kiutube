@@ -15,6 +15,7 @@
 #include "ops/playback_system.h"
 #include "ops/playlist_ops.h"
 #include "ops/search_ops.h"
+#include "ops/ytm_ops.h" /* kiutube */
 
 #include "sys/sys_integration.h"
 
@@ -23,6 +24,7 @@
 #include "ui/components.h"
 #include "ui/control_ui.h"
 #include "ui/chroma.h"
+#include "ui/input.h"
 #include "ui/termbox2_input.h"
 #include "ui/visuals.h"
 
@@ -303,8 +305,8 @@ void flip_next_page(Model *model)
 
                 model->state.ui.chosen_search_result_row += model->state.ui.max_search_rows - 1;
                 model->state.ui.chosen_search_result_row =
-                    (model->state.ui.chosen_search_result_row >= model->state.ui.search_results_count)
-                        ? model->state.ui.search_results_count - 1
+                    (model->state.ui.chosen_search_result_row >= ytm_effective_results_count(model)) /* kiutube */
+                        ? ytm_effective_results_count(model) - 1
                         : model->state.ui.chosen_search_result_row;
                 set_dirty(DIRTY_SEARCH);
         }
@@ -518,6 +520,41 @@ UpdateResult update(Model *model, struct Msg *msg)
                         model->library_updated = false;
                 }
 
+                /* kiutube: resultados da busca YTM prontos (thread sinalizou) */
+                if (model->ytm_results_ready) {
+                        model->ytm_results_ready = false;
+
+                        if (model->ytm_results_count > 0) {
+                                model->ytm_results_active = true;
+                                model->state.ui.chosen_search_result_row = 0;
+                                model->state.ui.search_scrollbar.position = 0;
+                                model->state.ui.search_scrollbar.last_position = 0;
+                                if (model->state.currentView != SEARCH_VIEW)
+                                        switch_view(SEARCH_VIEW);
+                                set_dirty(DIRTY_SEARCH);
+                        } else {
+                                set_error_message("Nenhum resultado no YouTube Music");
+                        }
+                }
+
+                /* kiutube: download YTM terminou (thread sinalizou) */
+                if (model->ytm_download_ready) {
+                        model->ytm_download_ready = false;
+                        model->ytm_downloading = false;
+
+                        if (model->ytm_downloaded_path[0] == '\0') {
+                                set_error_message("Falha ao baixar do YouTube Music");
+                        } else {
+                                model->ytm_results_active = false;
+                                set_dirty(DIRTY_SEARCH);
+                                if (ytm_prepare_downloaded_entry(model) != 0) {
+                                        set_error_message("Falha ao baixar do YouTube Music");
+                                } else {
+                                        dispatch_msg((struct Msg){.type = MSG_ENQUEUEANDPLAY});
+                                }
+                        }
+                }
+
                 if (model->playbackState.notifySwitch)
                         model->state.ui.chosen_lyrics_row = 0;
 
@@ -549,11 +586,19 @@ UpdateResult update(Model *model, struct Msg *msg)
                 break;
 
         case MSG_ENQUEUE:
+                if (model->ytm_results_active && model->state.currentView == SEARCH_VIEW) { /* kiutube */
+                        ytm_start_download(model, model->state.ui.chosen_search_result_row);
+                        break;
+                }
                 result.cmd.type = CMD_VIEW_ENQUEUE;
                 result.cmd.value = 0;
                 break;
 
         case MSG_ENQUEUEANDPLAY:
+                if (model->ytm_results_active && model->state.currentView == SEARCH_VIEW) { /* kiutube */
+                        ytm_start_download(model, model->state.ui.chosen_search_result_row);
+                        break;
+                }
                 result.cmd.type = CMD_VIEW_ENQUEUE;
                 result.cmd.value = 1;
                 break;
@@ -639,6 +684,21 @@ UpdateResult update(Model *model, struct Msg *msg)
                 break;
         }
 
+        case MSG_YTMSEARCH: /* kiutube: abre o prompt de busca YTM (F8) */
+                if (model->ytm_searching || model->ytm_downloading)
+                        break;
+
+                model->state.ui.ytm_search_prompt = true;
+                model->state.ui.ytm_search_text[0] = '\0';
+                reset_digits_pressed();
+
+                if (model->state.currentView != SEARCH_VIEW) {
+                        switch_view(SEARCH_VIEW);
+                        result.cmd.type = CMD_VIEW_CHANGED;
+                }
+                set_dirty(DIRTY_SEARCH);
+                break;
+
         case MSG_CYCLECOLORMODE:
                 result.cmd.type = CMD_CYCLE_COLOR_MODE;
                 set_dirty(DIRTY_ALL);
@@ -654,6 +714,14 @@ UpdateResult update(Model *model, struct Msg *msg)
                 break;
 
         case MSG_QUIT:
+                /* kiutube: ESC/q fecha os resultados YTM em vez de sair do app */
+                if (model->state.currentView == SEARCH_VIEW && model->ytm_results_active) {
+                        model->ytm_results_active = false;
+                        switch_view(model->state.last_view);
+                        result.cmd.type = CMD_VIEW_CHANGED;
+                        set_dirty(DIRTY_ALL);
+                        break;
+                }
                 result.cmd.type = CMD_QUIT;
                 break;
 
@@ -917,6 +985,21 @@ UpdateResult update(Model *model, struct Msg *msg)
                 break;
 
         case MSG_SEARCH_ROW_SELECTED:
+
+                /* kiutube: resultados YTM não têm entries; só sincroniza a
+                 linha escolhida (e trata clique como download) */
+                if (model->ytm_results_active) {
+                        model->state.ui.chosen_search_result_row = msg->chosen_row;
+                        model->state.ui.search_visible_count = msg->num_rows;
+
+                        model->mouse_x = -1;
+                        model->mouse_y = -1;
+                        model->mouse_key = -1;
+
+                        if (msg->clicked_song)
+                                ytm_start_download(model, msg->chosen_row);
+                        break;
+                }
 
                 if (!msg->found_chosen && (model->state.ui.chosen_search_result_row != msg->chosen_row || model->mouse_y >= 0)) {
                         set_dirty(DIRTY_SEARCH);

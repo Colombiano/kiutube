@@ -64,6 +64,39 @@ typedef void (*SlowloadingCallback)(void);
 FileSystemEntry *create_directory_tree(const char *start_path, int *num_entries);
 
 /**
+ * Creates a single, unattached FileSystemEntry.
+ *
+ * The entry is not part of any tree; the caller is responsible for
+ * freeing it (e.g. with free_tree on an anchor node).
+ *
+ * @param name         Entry name (copied)
+ * @param is_directory 1 for directories, 0 for files
+ * @param parent       Parent entry, or NULL
+ * @param mtime        Modification time
+ *
+ * @return The new entry, or NULL on allocation failure
+ */
+FileSystemEntry *create_entry(const char *name, int is_directory,
+                              FileSystemEntry *parent, time_t mtime);
+
+/** Attaches a child to a parent's children list. */
+void add_child(FileSystemEntry *parent, FileSystemEntry *child);
+
+/**
+ * Builds entry->full_path from a parent path and entry name.
+ *
+ * Rejects invalid names and path traversal. The entry is not attached
+ * to any tree by this call.
+ *
+ * @param entry       The entry to update
+ * @param parent_path Path of the parent directory
+ * @param entry_name  Name of the entry
+ */
+void set_full_path(FileSystemEntry *entry,
+                   const char *parent_path,
+                   const char *entry_name);
+
+/**
  * Frees an entire FileSystemEntry tree.
  *
  * Iteratively traverses the tree and releases all associated memory,

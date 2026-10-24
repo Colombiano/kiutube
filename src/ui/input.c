@@ -34,6 +34,7 @@
 #include "ops/playlist_ops.h"
 #include "ops/search_ops.h"
 #include "ops/track_manager.h"
+#include "ops/ytm_ops.h" /* kiutube */
 
 #include "utils/term.h"
 #include "utils/utils.h"
@@ -131,6 +132,63 @@ struct Msg handle_name_playlist_event(struct tb_event *ev)
                 if (ev->key == TB_KEY_ENTER) {
                         playlist_save();
                         event.type = MSG_NAMING_PLAYLIST;
+                }
+        }
+
+        return event;
+}
+
+/* kiutube: captura de teclas do prompt de busca YTM (F8). As teclas são
+ * "engolidas" pelo branch do prompt em on_tb_input (sem fallback p/ o
+ * keymap), então ESC cancela em vez de disparar o binding default (quit). */
+struct Msg handle_ytm_search_event(struct tb_event *ev)
+{
+        Model *model = get_model();
+        struct Msg event = {0};
+        event.type = MSG_NONE;
+
+        if (!model->state.ui.ytm_search_prompt)
+                return event;
+
+        if (ev->key == TB_KEY_SPACE && ev->mod == 0)
+                ev->ch = ' ';
+
+        // Backspace
+        if (ev->key == TB_KEY_BACKSPACE || ev->key == TB_KEY_BACKSPACE2) {
+                int len = (int)strnlen(model->state.ui.ytm_search_text,
+                                       sizeof(model->state.ui.ytm_search_text));
+                if (len > 0) {
+                        int last_char_bytes = get_last_char_bytes(model->state.ui.ytm_search_text, len);
+                        if (last_char_bytes > 0)
+                                model->state.ui.ytm_search_text[len - last_char_bytes] = '\0';
+                }
+                reset_digits_pressed();
+                set_dirty(DIRTY_SEARCH);
+        }
+        // Esc: cancela o prompt
+        else if (ev->key == TB_KEY_ESC) {
+                model->state.ui.ytm_search_prompt = false;
+                model->state.ui.ytm_search_text[0] = '\0';
+                reset_digits_pressed();
+                set_dirty(DIRTY_SEARCH);
+        }
+        // Enter: submete a busca
+        else if (ev->key == TB_KEY_ENTER) {
+                reset_digits_pressed();
+                ytm_submit_search();
+        }
+        // Printable character (not escape, enter, tab, carriage return)
+        else if ((ev->ch > 0 && ev->ch != '\033' && ev->ch != '\n' && ev->ch != '\t' && ev->ch != '\r') ||
+                 ev->ch == ' ') {
+                char keybuf[5] = {0};
+                tb_utf8_unicode_to_char(keybuf, ev->ch);
+
+                size_t len = strnlen(model->state.ui.ytm_search_text,
+                                     sizeof(model->state.ui.ytm_search_text));
+                size_t avail = sizeof(model->state.ui.ytm_search_text) - 1 - len;
+                if (avail >= strnlen(keybuf, sizeof(keybuf))) {
+                        strncat(model->state.ui.ytm_search_text, keybuf, avail);
+                        set_dirty(DIRTY_SEARCH);
                 }
         }
 
@@ -759,7 +817,13 @@ static gboolean on_tb_input(GIOChannel *source, GIOCondition cond, gpointer data
                 msg.key[0] = '\0';
 
                 AppState *state = get_app_state();
-                if (state->ui.naming_playlist) {
+                if (state->ui.ytm_search_prompt) { /* kiutube: prompt YTM engole as teclas */
+                        while (tb_peek_event(&ev, 0) == 0) {
+                                bool isMouseEvent = handle_mouse_event(&ev, &msg, true);
+                                if (!isMouseEvent)
+                                        msg = handle_ytm_search_event(&ev);
+                        }
+                } else if (state->ui.naming_playlist) {
                         while (tb_peek_event(&ev, 0) == 0) {
                                 bool isMouseEvent = handle_mouse_event(&ev, &msg, true);
                                 if (!isMouseEvent) {
@@ -927,7 +991,13 @@ static gboolean on_tb_input(GIOChannel *source, GIOCondition cond, gpointer data
                 msg.key[0] = '\0';
 
                 AppState *state = get_app_state();
-                if (state->ui.naming_playlist) {
+                if (state->ui.ytm_search_prompt) { /* kiutube: prompt YTM engole as teclas */
+                        while (tb_peek_event(&ev, 0) == 0) {
+                                bool isMouseEvent = handle_mouse_event(&ev, &msg, true);
+                                if (!isMouseEvent)
+                                        msg = handle_ytm_search_event(&ev);
+                        }
+                } else if (state->ui.naming_playlist) {
                         while (tb_peek_event(&ev, 0) == 0) {
                                 bool isMouseEvent = handle_mouse_event(&ev, &msg, true);
                                 if (!isMouseEvent) {

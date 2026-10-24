@@ -822,6 +822,8 @@ void state_init(void)
         state->ui.metadata_switched = 0;
         state->ui.decoder_switched = 0;
         state->ui.naming_playlist = false;
+        state->ui.ytm_search_prompt = false; /* kiutube */
+        state->ui.ytm_search_text[0] = '\0';
         state->ui.playlist_scrollbar.position = 0;
         state->ui.playlist_scrollbar.last_position = 0;
         state->ui.library_scrollbar.position = 0;

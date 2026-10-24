@@ -3284,8 +3284,17 @@ ComponentMsg component_search_box(const Model *model, k_Rect region, DrawBuffer 
 
         int max_width = region.width;
 
-        snprintf(line, sizeof(line), _("Search:"));
-        snprintf(query, sizeof(query), "%s█", model->state.ui.search_text);
+        /* kiutube: prompt de busca YTM (F8) e resultados YTM */
+        if (model->state.ui.ytm_search_prompt) {
+                snprintf(line, sizeof(line), _("Busca YTM:"));
+                snprintf(query, sizeof(query), "%s█", model->state.ui.ytm_search_text);
+        } else if (model->ytm_results_active) {
+                snprintf(line, sizeof(line), "YTM:");
+                snprintf(query, sizeof(query), "%s", model->ytm_query);
+        } else {
+                snprintf(line, sizeof(line), _("Search:"));
+                snprintf(query, sizeof(query), "%s█", model->state.ui.search_text);
+        }
         ;
         int line_width = utf8_display_width(line);
         draw_buffer_set_string_truncated(buf, region.row, region.col, line, line_width, label_style);
@@ -3358,11 +3367,111 @@ size_t utf8_truncate(const char *s, int max_width)
         return pos; /* byte offset */
 }
 
+/* kiutube: resultados da busca YTM desenhados no lugar dos resultados fuzzy */
+static ComponentMsg component_ytm_search_results(const Model *model, k_Rect region, DrawBuffer *buf, DirtyFlags dirty)
+{
+        (void)dirty;
+
+        ComponentMsg result = (ComponentMsg){0};
+
+        const AppState *state = &model->state;
+        const UISettings *ui = &state->settings;
+        const UIState *uis = &state->ui;
+
+        int max_list_size = region.height;
+        int count = model->ytm_results_count;
+
+        int chosen_row = uis->chosen_search_result_row;
+
+        // Clamp chosen row
+        if (chosen_row > count - 1)
+                chosen_row = count - 1;
+        if (chosen_row < 0)
+                chosen_row = 0;
+
+        // Calculate start iterator
+        int start_iter = 0;
+
+        if (chosen_row > (int)(start_iter + round(max_list_size / 2)))
+                start_iter = chosen_row - (int)round(max_list_size / 2) + 1;
+
+        if (chosen_row < start_iter)
+                start_iter = chosen_row;
+
+        int mouse_chosen = -1;
+        int printed_rows = 0;
+        int draw_row = region.row;
+        bool clicked_song = false;
+
+        CellStyle plain = cell_style_from_theme(ui->theme.search_result);
+        CellStyle rev = plain;
+        rev.attrs |= ATTR_REVERSE;
+
+        for (int i = start_iter; i < count; i++) {
+
+                if (printed_rows >= max_list_size)
+                        break;
+
+                const YtmSearchResult *track = &model->ytm_results[i];
+
+                int mins = track->duration / 60;
+                int secs = track->duration % 60;
+
+                char text[KEW_PATH_MAX];
+                snprintf(text, sizeof(text), "%s — %s (%d:%02d)",
+                         track->title, track->artist, mins, secs);
+
+                bool is_chosen;
+                if (model->mouse_x >= 0 && model->mouse_y >= 0) {
+                        is_chosen = (model->mouse_y >= region.row &&
+                                     model->mouse_y <= region.row + region.height) &&
+                                    (printed_rows == model->mouse_y - region.row);
+                        if (is_chosen) {
+                                clicked_song = true;
+                                mouse_chosen = i;
+                        }
+                } else {
+                        is_chosen = (chosen_row == i);
+                }
+
+                draw_buffer_set_string_truncated(buf, draw_row++, region.col, text,
+                                                 region.width, is_chosen ? rev : plain);
+                printed_rows++;
+        }
+
+        if (mouse_chosen >= 0)
+                chosen_row = mouse_chosen;
+
+        // Blank remaining rows
+        CellStyle blank = cell_style_plain();
+        while (printed_rows < max_list_size) {
+                draw_buffer_set_string_truncated(buf, draw_row++, region.col,
+                                                 "", region.width, blank);
+                printed_rows++;
+        }
+
+        render_scroll_bar(buf, region, uis->search_scrollbar, blank);
+
+        result.has_msg = true;
+        result.msg = (struct Msg){
+            .type = MSG_SEARCH_ROW_SELECTED,
+            .chosen_row = chosen_row,
+            .clicked_song = clicked_song,
+            .num_rows = count,
+            .found_chosen = true};
+
+        return result;
+}
+
 ComponentMsg component_search_results(const Model *model, k_Rect region, DrawBuffer *buf, DirtyFlags dirty)
 {
         (void)dirty;
 
         ComponentMsg result = (ComponentMsg){0};
+
+        /* kiutube: busca YTM ativa renderiza os resultados do Model */
+        if (model->ytm_results_active)
+                return component_ytm_search_results(model, region, buf, dirty);
 
         const AppState *state = &model->state;
         const UISettings *ui = &state->settings;

@@ -24,6 +24,12 @@ extern "C"
         /** Busca no YouTube Music. Retorna nº de resultados; *out malloc'ed. -1 em erro. */
         int ytm_search_blocking(const char *query, int limit, YtmTrack **out);
 
+        /** Baixa a faixa (yt-dlp) para dest_base + ext. Retorna caminho final malloc'ed ou NULL. */
+        char *ytm_download_track_blocking(const char *video_id, const char *dest_base);
+
+        /** Dir de destino dos streams (cache_dir + "/streams"), criado se preciso. malloc'ed ou NULL. */
+        char *ytm_default_cache_dir(void);
+
         /** Resolve URL do stream de áudio. Retorna string malloc'ed ou NULL. */
         char *ytm_resolve_stream_blocking(const char *video_id);
 
