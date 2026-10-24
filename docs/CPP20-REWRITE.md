@@ -36,6 +36,12 @@ digitando, Enter toca, ESC fecha).
 normalização de título), view de letras ('g'), fetch em offload sem
 bloquear a UI.
 
+**M4 adiantado — visualizadores**: FFT Spectrum (barras log-freq com
+peak-hold, estilo fft.png) e Spectrograma 2D scroll (rampa quente estilo
+espectrograma2d.png). CellBuffer ganhou cor (256, SGR); tap SPSC na audio
+thread espia o que o device tocou; pocketfft (plano C RAII) a 4096 com
+Hann 50% overlap; 'v' cicla os modos; relógio de UI adapta 50↔250ms.
+
 **M0 — fundação**: scheduler de corrotinas (epoll + timers + eventfd),
 terminal layer própria em C++, harness PTY, build CMake `-Werror`.
 
@@ -125,7 +131,7 @@ Todo comentário, documento, string de UI e commit segue PT → EN → ES → ZH
 | M1 ✅ | Settings tipadas (descritores constexpr), sol2 Lua config, bindings magic_enum, logging |
 | M2 ✅ | audio::Engine + Decoder concept + play/pause/seek/gapless + gate pactl |
 | M3 ✅ | WebmDecoder (caches YTM), library taglib + fuzzy Typesense + picker, letras LRCLIB |
-| M4 | Views completas (playlist/faixa), visualizador pocketfft, capa chafa, F8 YTM, CLI --ytm, migra ytm p/ net |
+| M4 | Views completas (playlist/faixa), ~~visualizador~~ ✅, capa chafa, F8 YTM, CLI --ytm, migra ytm p/ net |
 | M5 | MPRIS sdbus-c++, apaga src/ C, renomeia binário |
 
 ### Como buildar e testar
@@ -177,6 +183,12 @@ ESC closes).
 
 **M3c — LRCLIB lyrics**: `net/` (sync http + LRCLIB with retry and title
 normalization), lyrics view ('g'), offloaded fetch that never blocks the UI.
+
+**Early M4 — visualizers**: FFT Spectrum (log-freq bars with peak-hold,
+like fft.png) and scrolling 2D spectrogram (hot ramp like
+espectrograma2d.png). CellBuffer grew color (256, SGR); an SPSC tap on the
+audio thread snoops what the device plays; pocketfft (RAII C plan) at 4096
+with Hann 50% overlap; 'v' cycles modes; the UI clock adapts 50↔250ms.
 
 **M0 — foundation**: coroutine scheduler (epoll + timers + eventfd), own C++
 terminal layer, PTY smoke harness, CMake `-Werror` build.
@@ -267,7 +279,7 @@ Every comment, document, UI string and commit follows PT → EN → ES → ZH.
 | M1 ✅ | Typed settings (constexpr descriptors), sol2 Lua config, magic_enum bindings, logging |
 | M2 ✅ | audio::Engine + Decoder concept + play/pause/seek/gapless + pactl gate |
 | M3 ✅ | WebmDecoder (YTM caches), taglib library + Typesense fuzzy + picker, LRCLIB lyrics |
-| M4 | Full views (playlist/track), pocketfft visualizer, chafa cover, F8 YTM, --ytm CLI, ytm migration to net |
+| M4 | Full views (playlist/track), ~~visualizer~~ ✅, chafa cover, F8 YTM, --ytm CLI, ytm migration to net |
 | M5 | sdbus-c++ MPRIS, delete legacy src/ C, rename binary |
 
 ### Build and test
@@ -320,6 +332,12 @@ tecleando, Enter reproduce, ESC cierra).
 **M3c — letras LRCLIB**: `net/` (http síncrono + LRCLIB con retry y
 normalización del título), vista de letras ('g'), fetch en offload sin
 bloquear la UI.
+
+**M4 adelantado — visualizadores**: FFT Spectrum (barras log-freq con
+peak-hold, como fft.png) y espectrograma 2D scroll (rampa caliente como
+espectrograma2d.png). CellBuffer ganó color (256, SGR); tap SPSC en el
+hilo de audio espía lo que el device suena; pocketfft (plan C RAII) a
+4096 con Hann 50% overlap; 'v' cicla los modos; reloj de UI adaptativo.
 
 **M0 — fundación**: scheduler de corrutinas (epoll + timers + eventfd),
 terminal layer propia en C++, harness PTY, build CMake `-Werror`.
@@ -461,6 +479,12 @@ ESC 关闭）。
 **M3c —— LRCLIB 歌词**：`net/`（同步 http + 带重试与标题归一化的
 LRCLIB），歌词视图（'g'），经 offload 的不阻塞获取。
 
+**提前的 M4 —— 可视化器**：FFT 频谱（对数频率柱状 + 峰值保持，类似
+fft.png）与滚动 2D 频谱图（hot 色带，类似 espectrograma2d.png）。
+CellBuffer 支持颜色（256 色、SGR）；音频线程上的 SPSC tap 窥视设备
+实际播放；pocketfft（RAII C plan）4096 点、Hann 窗 50% 重叠；'v'
+循环模式；UI 时钟自适应 50↔250ms。
+
 **M0 —— 基础**：协程调度器（epoll + 定时器 + eventfd）、自研 C++ 终端
 层、PTY 冒烟 harness、CMake `-Werror` 构建。
 
@@ -549,7 +573,7 @@ UI 组件的 CRTP、`std::format`。
 | M1 ✅ | 类型化 settings（constexpr 描述符）、sol2 Lua 配置、magic_enum 绑定、日志 |
 | M2 ✅ | audio::Engine + Decoder concept + play/pause/seek/gapless + pactl 门槛 |
 | M3 ✅ | WebmDecoder（YTM 缓存）、taglib 曲库 + Typesense 模糊搜索 + 选择器、LRCLIB 歌词 |
-| M4 | 完整视图、pocketfft 可视化器、chafa 封面、F8 YTM、--ytm CLI、ytm 迁移到 net |
+| M4 | 完整视图、~~可视化器~~ ✅、chafa 封面、F8 YTM、--ytm CLI、ytm 迁移到 net |
 | M5 | sdbus-c++ MPRIS、删除旧 src/ C、重命名二进制 |
 
 ### 构建与测试

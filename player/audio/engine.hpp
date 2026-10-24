@@ -52,6 +52,16 @@ class Engine
         [[nodiscard]] std::chrono::microseconds position() const;
         [[nodiscard]] bool is_playing() const;
 
+        // PT: Drena o tap de visualização (frames stereo que o device tocou).
+        //     Thread-safe SPSC; chamar do scheduler (~20x/s). Retorna frames.
+        // EN: Drains the visualization tap (stereo frames the device played).
+        //     Thread-safe SPSC; call from the scheduler (~20/s). Returns frames.
+        // ES: Drena el tap de visualización. Thread-safe SPSC; llamar desde
+        //     el scheduler (~20/s).
+        // ZH: 排空可视化 tap（设备已播放的立体声帧）。线程安全 SPSC；由调度器
+        //     调用（约 20 次/秒）。返回帧数。
+        [[nodiscard]] std::size_t read_viz(std::span<float> out);
+
         // PT: Corrotina produtora: roda no scheduler, enche o ring a partir do
         //     decoder atual. Para quando shutdown() for chamado (fim do app) —
         //     senão seus timers impediriam o run-loop de terminar.

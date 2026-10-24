@@ -91,6 +91,23 @@ struct Engine::Impl
         // ES: Fin de la app: el feeder deja de agendar timers (run-loop termina).
         // ZH: 应用结束：feeder 停止注册定时器（run-loop 得以结束）。
         std::atomic<bool> quit_{false};
+
+        // PT: Tap de visualização: a audio thread espia os frames que o
+        //       device realmente tocou (pós-seek correto). SPSC separado do
+        //       ring principal; o analyzer drena no scheduler.
+        // EN: Visualization tap: the audio thread snoops the frames the
+        //       device actually played (post-seek correct). SPSC ring
+        //       separate from the main one; the analyzer drains it on the
+        //       scheduler thread.
+        // ES: Tap de visualización: el hilo de audio espía los frames que el
+        //       device realmente sonó. Ring SPSC separado; el analyzer lo
+        //       drena en el scheduler.
+        // ZH: 可视化 tap：音频线程窥视设备实际播放的帧（seek 后位置准确）。
+        //       独立于主 ring 的 SPSC；分析器在调度器线程上排空。
+        static constexpr std::size_t kVizCap = 1u << 15; // PT: floats / floats / 浮点数
+        std::vector<float> viz_ring = std::vector<float>(kVizCap, 0.0f);
+        std::atomic<std::size_t> viz_rd{0};
+        std::atomic<std::size_t> viz_wr{0};
         // PT: Geração do ring: seek/next invalidam cópias em vo da audio thread.
         // EN: Ring generation: seek/next invalidate in-flight copies on the audio thread.
         // ES: Generación del ring: seek/next invalidan copias en vuelo del hilo de audio.
@@ -145,6 +162,28 @@ struct Engine::Impl
                         std::memset(out, 0, total * sizeof(float));
                         if (n < total)
                                 underruns.fetch_add(1, std::memory_order_relaxed);
+                }
+
+                // PT: Tap do visualizador: espia o que SAIU para o device
+                //       (apenas a parte com áudio real; underrun = silêncio
+                //       que também "toca", então espia tudo — simples e
+                //       sincronizado com o ouvido).
+                // EN: Visualizer tap: snoops what WENT to the device (only the
+                //       part with real audio; underrun = silence which also
+                //       "plays", so snoop everything — simple and ear-synced).
+                // ES: Tap del visualizador: espía lo que SALIÓ al device.
+                // ZH: 可视化 tap：窥视输出到设备的内容（与听觉同步）。
+                const std::size_t vw = viz_wr.load(std::memory_order_relaxed);
+                const std::size_t vfree = kVizCap - (vw - viz_rd.load(std::memory_order_acquire));
+                const std::size_t to_write = std::min(total, vfree);
+                if (to_write > 0)
+                {
+                        const std::size_t w0 = vw % kVizCap;
+                        const std::size_t first = std::min(to_write, kVizCap - w0);
+                        std::memcpy(viz_ring.data() + w0, out, first * sizeof(float));
+                        if (to_write > first)
+                                std::memcpy(viz_ring.data(), out + first, (to_write - first) * sizeof(float));
+                        viz_wr.store(vw + to_write, std::memory_order_release);
                 }
         }
 
@@ -410,6 +449,22 @@ bool Engine::is_playing() const
 {
         std::lock_guard lk(impl_->m);
         return impl_->device_ok && !impl_->paused;
+}
+
+std::size_t Engine::read_viz(std::span<float> out)
+{
+        const std::size_t r = impl_->viz_rd.load(std::memory_order_acquire);
+        const std::size_t w = impl_->viz_wr.load(std::memory_order_acquire);
+        const std::size_t avail = std::min(w - r, out.size());
+        if (avail == 0)
+                return 0;
+        const std::size_t r0 = r % impl_->kVizCap;
+        const std::size_t first = std::min(avail, impl_->kVizCap - r0);
+        std::memcpy(out.data(), impl_->viz_ring.data() + r0, first * sizeof(float));
+        if (avail > first)
+                std::memcpy(out.data() + first, impl_->viz_ring.data(), (avail - first) * sizeof(float));
+        impl_->viz_rd.store(r + avail, std::memory_order_release);
+        return avail / 2; // PT: frames (2 floats cada) / frames / 帧
 }
 
 krt::Task<void> Engine::feeder_task()

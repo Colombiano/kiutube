@@ -78,7 +78,11 @@ def main():
     while i < len(argv):
         a = argv[i]
         if a == "--expect":
-            steps.append(("expect", argv[i + 1])); i += 2
+            # PT: decodifica escapes (\x1b[...) para comparar com o stream.
+            # EN: decodes escapes (\x1b[...) for stream comparison.
+            # ES: decodifica escapes para comparar con el stream.
+            # ZH: 解码转义（\x1b[...）以便与输出流比较。
+            steps.append(("expect", argv[i + 1].encode("utf-8").decode("unicode_escape"))); i += 2
         elif a == "--send":
             steps.append(("send", argv[i + 1])); i += 2
         elif a == "--sh":

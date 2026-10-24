@@ -77,6 +77,12 @@ inline constexpr Binding kDefaultBindings[] = {
     {{tui::Key::Char, 'l', tui::MOD_NONE}, Event::Library},
     {{tui::Key::Char, 'L', tui::MOD_NONE}, Event::Library},
     {{tui::Key::Char, 'g', tui::MOD_NONE}, Event::Lyrics},
+    // PT: 'v' cicla os visualizadores (spectrum -> spectrogram -> off).
+    // EN: 'v' cycles the visualizers (spectrum -> spectrogram -> off).
+    // ES: 'v' cicla los visualizadores (spectrum -> spectrogram -> off).
+    // ZH: 'v' 循环切换可视化器（spectrum -> spectrogram -> off）。
+    {{tui::Key::Char, 'v', tui::MOD_NONE}, Event::CycleViz},
+    {{tui::Key::Char, 'V', tui::MOD_NONE}, Event::CycleViz},
 };
 
 // PT: Parse de nome de tecla (case-insensitive): "x", "F8", "enter", "ctrl-x",

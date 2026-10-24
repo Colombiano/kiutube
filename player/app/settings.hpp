@@ -42,7 +42,8 @@ enum class Event : std::uint16_t
         VolUp,
         VolDown,
         Library,
-        Lyrics
+        Lyrics,
+        CycleViz
 };
 
 struct Settings

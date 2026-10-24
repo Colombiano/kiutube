@@ -172,7 +172,11 @@ Term::Term()
 
 Term::~Term()
 {
-        const char fini[] = "\x1b[?25h\x1b[?1049l";
+        // PT: restaura cursor/screen e reseta SGR (cores do visualizador).
+        // EN: restores cursor/screen and resets SGR (visualizer colors).
+        // ES: restaura cursor/pantalla y resetea SGR (colores del visualizador).
+        // ZH: 恢复光标/屏幕并重置 SGR（可视化器颜色）。
+        const char fini[] = "\x1b[0m\x1b[?25h\x1b[?1049l";
         if (write(STDOUT_FILENO, fini, sizeof(fini) - 1) < 0)
         {
         }

@@ -25,6 +25,7 @@
 #include "script/lua_state.hpp"
 #include "tui/cell_buffer.hpp"
 #include "tui/term.hpp"
+#include "tui/visualizer.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -154,6 +155,7 @@ struct Ui
         const std::vector<library::Track> *tracks = nullptr; // PT: preenchido após o scan / set after scan
         Picker picker;
         LyricsPane lyrics;
+        viz::Visualizer viz;
 
         Ui(audio::Engine &e, app::Settings &s) : buf(24, 100), engine(e), settings(s)
         {
@@ -164,15 +166,30 @@ struct Ui
         {
                 const auto cur = engine.current();
                 const auto pos = engine.position();
+
+                // PT: Drena o tap do engine e alimenta o visualizador a cada
+                //     redraw (~4-20x/s) — sincronizado com o que está saindo
+                //     no device.
+                // EN: Drains the engine tap and feeds the visualizer on every
+                //     redraw — synced with what is coming out of the device.
+                // ES: Drena el tap del engine y alimenta el visualizador en
+                //     cada redraw.
+                // ZH: 每次重绘时排空引擎 tap 并喂给可视化器 —— 与设备实际输出
+                //     保持同步。
+                float chunk[16384];
+                const std::size_t got = engine.read_viz({chunk, 16384});
+                if (got > 0)
+                        viz.feed({chunk, got * 2});
+
                 buf.clear();
-                buf.put(1, 2, "kiutube2 - M3 / PT / EN / ES / ZH");
-                buf.put(3, 2, "PT: biblioteca fuzzy (Typesense) + letras LRCLIB");
-                buf.put(4, 2, "EN: fuzzy library (Typesense) + LRCLIB lyrics");
-                buf.put(5, 2, "ES: biblioteca fuzzy (Typesense) + letras LRCLIB");
-                buf.put(6, 2, "ZH: Typesense \xe6\xa8\xa1\xe7\xb3\x8a\xe6\x90\x9c\xe7\xb4\xa2\xe6\x9b\xb2\xe5\xba\x93 + LRCLIB \xe6\xad\x8c\xe8\xaf\x8d");
+                buf.put(1, 2, "kiutube2 - M3+viz / PT / EN / ES / ZH");
+                buf.put(3, 2, "PT: biblioteca fuzzy + letras + visualizadores");
+                buf.put(4, 2, "EN: fuzzy library + lyrics + visualizers");
+                buf.put(5, 2, "ES: biblioteca fuzzy + letras + visualizadores");
+                buf.put(6, 2, "ZH: \xe6\xa8\xa1\xe7\xb3\x8a\xe6\x90\x9c\xe7\xb4\xa2 + \xe6\xad\x8c\xe8\xaf\x8d + \xe5\x8f\xaf\xe8\xa7\x86\xe5\x8c\x96");
                 if (cur.path.empty())
                 {
-                        buf.put(8, 2, "kiutube2 play <arquivo / file / archivo / \xe6\x96\x87\xe4\xbb\xb6> ...   keys: l/g");
+                        buf.put(8, 2, "kiutube2 play <arquivo / file / archivo / \xe6\x96\x87\xe4\xbb\xb6> ...   keys: l/g/v");
                         buf.put(9, 2, "key " + last_key);
                 }
                 else
@@ -191,6 +208,18 @@ struct Ui
                                   (settings.visualizer ? "on" : "off") +
                                   (tracks ? " lib=" + std::to_string(tracks->size()) : "");
                 buf.put(11, 2, cfg);
+
+                // PT: Área do visualizador (rows 13..19). settings.visualizer
+                //     = off força o modo Off.
+                // EN: Visualizer area (rows 13..19). settings.visualizer = off
+                //     forces Mode::Off.
+                // ES: Área del visualizador (filas 13..19).
+                // ZH: 可视化器区域（第 13..19 行）。settings.visualizer=off
+                //     时强制关闭。
+                if (!settings.visualizer && viz.mode() != viz::Mode::Off)
+                        viz.set_mode(viz::Mode::Off);
+                if (viz.mode() != viz::Mode::Off)
+                        viz.draw(buf, 13, 2, 7, buf.cols() - 4);
 
                 if (picker.active && tracks)
                         draw_picker();
@@ -264,9 +293,17 @@ struct Ui
 
 krt::Task<void> ui_clock(Ui &ui, std::atomic<bool> &alive)
 {
+        // PT: Relógio adaptativo: 50ms com visualizador ativo (movimento
+        //     fluido), 250ms parado. Para quando alive baixa.
+        // EN: Adaptive clock: 50ms with an active visualizer (fluid motion),
+        //     250ms when idle. Stops when alive drops.
+        // ES: Reloj adaptativo: 50ms con visualizador activo, 250ms en
+        //     reposo. Para cuando alive baja.
+        // ZH: 自适应时钟：可视化器激活时 50ms（流畅动画），空闲时 250ms。
+        //     alive 置假后停止。
         while (alive.load(std::memory_order_acquire))
         {
-                co_await krt::sleep(250ms);
+                co_await krt::sleep(ui.viz.mode() != viz::Mode::Off ? 50ms : 250ms);
                 ui.draw();
         }
 }
@@ -436,6 +473,26 @@ krt::Task<void> app_main(audio::Engine &engine, Ui &ui, std::atomic<bool> &alive
                                 }
                                 break;
                         }
+                        case app::Event::CycleViz:
+                                // PT: cicla Off -> Spectrum -> Spectrogram -> Off.
+                                // EN: cycles Off -> Spectrum -> Spectrogram -> Off.
+                                // ES: cicla Off -> Spectrum -> Spectrogram -> Off.
+                                // ZH: 循环 Off -> Spectrum -> Spectrogram -> Off。
+                                switch (ui.viz.mode())
+                                {
+                                case viz::Mode::Off:
+                                        ui.viz.set_mode(viz::Mode::Spectrum);
+                                        break;
+                                case viz::Mode::Spectrum:
+                                        ui.viz.set_mode(viz::Mode::Spectrogram);
+                                        break;
+                                case viz::Mode::Spectrogram:
+                                        ui.viz.set_mode(viz::Mode::Off);
+                                        break;
+                                }
+                                krt::log::info("viz: modo / mode / modo / 模式: {}",
+                                               static_cast<int>(ui.viz.mode()));
+                                break;
                         default:
                                 break;
                         }

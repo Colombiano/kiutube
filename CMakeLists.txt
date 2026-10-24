@@ -136,7 +136,9 @@ add_executable(kiutube2
   player/net/lrclib.cpp
   player/script/lua_state.cpp
   player/tui/term.cpp
-  include/nestegg/nestegg.c)
+  player/tui/visualizer.cpp
+  include/nestegg/nestegg.c
+  ${pocketfft_SOURCE_DIR}/pocketfft.c)
 # PT: Código legado (webm.h do kew, nestegg): warnings suprimidos por não
 #     serem nossos para polir; a fronteira C fica no shim.
 # EN: Legacy code (kew's webm.h, nestegg): warnings suppressed — not ours to
@@ -186,3 +188,12 @@ add_executable(library_smoke player/tests/library_smoke.cpp player/library/libra
 target_include_directories(library_smoke PRIVATE player)
 target_link_libraries(library_smoke PRIVATE kiutube2_deps)
 add_test(NAME library_smoke COMMAND library_smoke)
+
+# PT: Smoke test do visualizador (FFT 440Hz ±3%, paleta, SGR colorido).
+# EN: Visualizer smoke test (440Hz FFT ±3%, palette, colored SGR).
+# ES: Smoke test del visualizador (FFT 440Hz ±3%, paleta, SGR coloreado).
+# ZH: 可视化器冒烟测试（440Hz FFT ±3%、调色板、彩色 SGR）。
+add_executable(viz_smoke player/tests/viz_smoke.cpp player/tui/visualizer.cpp ${pocketfft_SOURCE_DIR}/pocketfft.c)
+target_include_directories(viz_smoke PRIVATE player ${pocketfft_SOURCE_DIR})
+target_link_libraries(viz_smoke PRIVATE kiutube2_deps)
+add_test(NAME viz_smoke COMMAND viz_smoke)
