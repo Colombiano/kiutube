@@ -26,6 +26,7 @@
 #include "net/translate.hpp"
 #include "net/ytm.hpp"
 #include "script/lua_state.hpp"
+#include "sys/mpris.hpp"
 #include "tui/cell_buffer.hpp"
 #include "tui/term.hpp"
 #include "tui/visualizer.hpp"
@@ -882,6 +883,7 @@ krt::Task<void> app_main(audio::Engine &engine, Ui &ui, std::atomic<bool> &alive
 int main(int argc, char **argv)
 {
         audio::Engine engine;
+        sys::Mpris mpris(engine); // PT: thread própria; dtor junta antes do engine / own thread; joins before the engine
         app::Settings early_settings;
         if (argc >= 2 && std::string_view(argv[1]) == "--ytm")
         {

@@ -402,7 +402,7 @@ bool Engine::next()
         return true;
 }
 
-bool Engine::seek_by(std::chrono::seconds delta)
+bool Engine::seek_by(std::chrono::microseconds delta)
 {
         std::lock_guard lk(impl_->m);
         if (!impl_->has_dec)

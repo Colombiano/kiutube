@@ -56,6 +56,18 @@ endif()
 # ZH: 通过 FetchContent 引入 header-only 依赖（固定版本；首次 configure 后应将
 #     GIT_TAG 换成 commit 哈希 —— 见 docs/CPP20-REWRITE.md）。
 include(FetchContent)
+# PT: sdbus-c++ (KDE, LGPL) pro MPRIS — estático, sem codegen/tests/exemplos.
+# EN: sdbus-c++ (KDE, LGPL) for MPRIS — static, no codegen/tests/examples.
+# ES: sdbus-c++ (KDE, LGPL) para el MPRIS — estático, sin codegen/tests.
+# ZH: 用于 MPRIS 的 sdbus-c++（KDE，LGPL）—— 静态，无 codegen/tests/示例。
+FetchContent_Declare(sdbus-cpp
+  GIT_REPOSITORY https://github.com/Kistler-Group/sdbus-cpp.git
+  GIT_TAG v2.1.0
+  GIT_SHALLOW TRUE)
+set(SDBUSCPP_BUILD_CODEGEN OFF CACHE BOOL "" FORCE)
+set(SDBUSCPP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(SDBUSCPP_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(SDBUSCPP_BUILD_SHARED OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(sol2
   GIT_REPOSITORY https://github.com/ThePhD/sol2.git
   GIT_TAG v3.3.0
@@ -68,7 +80,7 @@ FetchContent_Declare(magic_enum
   GIT_REPOSITORY https://github.com/Neargye/magic_enum.git
   GIT_TAG v0.9.7
   GIT_SHALLOW TRUE)
-FetchContent_MakeAvailable(sol2 pocketfft magic_enum)
+FetchContent_MakeAvailable(sdbus-cpp sol2 pocketfft magic_enum)
 
 # PT: sol2 precisa dos headers do Lua 5.4 (PUC Lua permanece C — decisão arquitetural).
 # EN: sol2 needs the Lua 5.4 headers (PUC Lua stays C — architectural decision).
@@ -153,6 +165,7 @@ add_executable(kiutube2
   player/net/translate.cpp
   player/net/ytm.cpp
   player/script/lua_state.cpp
+  player/sys/mpris.cpp
   player/tui/term.cpp
   player/tui/visualizer.cpp
   player/gui/viz_window.cpp
@@ -171,6 +184,19 @@ if(Qt6Widgets_FOUND)
   target_link_libraries(kiutube2 PRIVATE Qt6::Widgets Qt6::PrintSupport)
   set_source_files_properties(third_party/qcustomplot/qcustomplot.cpp
     PROPERTIES COMPILE_FLAGS "-w")
+endif()
+
+# PT: sdbus-c++ presente (FetchContent) -> MPRIS real; senão, stub.
+# EN: sdbus-c++ present (FetchContent) -> real MPRIS; otherwise, stub.
+# ES: sdbus-c++ presente -> MPRIS real; si no, stub.
+# ZH: sdbus-c++ 存在（FetchContent）-> 真实 MPRIS；否则 stub。
+if(TARGET sdbus-c++)
+  target_compile_definitions(kiutube2 PRIVATE KIUTUBE2_WITH_MPRIS)
+  target_link_libraries(kiutube2 PRIVATE sdbus-c++)
+  find_library(SYSTEMD_LIBRARY systemd)
+  if(SYSTEMD_LIBRARY)
+    target_link_libraries(kiutube2 PRIVATE ${SYSTEMD_LIBRARY})
+  endif()
 endif()
 # PT: Código legado (webm.h do kew, nestegg): warnings suprimidos por não
 #     serem nossos para polir; a fronteira C fica no shim.

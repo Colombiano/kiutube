@@ -44,7 +44,7 @@ class Engine
         bool play();                                        // inicia/retoma o device
         bool pause();
         bool next();                                        // pula faixa atual (draina o ring)
-        bool seek_by(std::chrono::seconds delta);           // seek relativo, clampado
+        bool seek_by(std::chrono::microseconds delta);      // seek relativo, clampado
         void set_volume(float v01);                         // 0.0 .. 1.0
         [[nodiscard]] float volume() const;
 
