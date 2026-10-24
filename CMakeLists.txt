@@ -1,11 +1,11 @@
-# PT: CMake do kiutube2 (reescrita C++20). Convive com o Makefile antigo
-#     (build do C) até o marco M5; ver docs/CPP20-REWRITE.md.
-# EN: kiutube2 build (C++20 rewrite). Coexists with the legacy Makefile (C
-#     build) until milestone M5; see docs/CPP20-REWRITE.md.
-# ES: CMake de kiutube2 (reescritura C++20). Convive con el Makefile antiguo
-#     (build de C) hasta el hito M5; ver docs/CPP20-REWRITE.md.
-# ZH: kiutube2（C++20 重写）的 CMake。在 M5 之前与旧的 Makefile（C 构建）共存；
-#     见 docs/CPP20-REWRITE.md。
+# PT: CMake do kiutube2 (reescrita C++20). Com o M5 o C legado (src/) saiu
+#     do repositório — este é o único build; ver docs/CPP20-REWRITE.md.
+# EN: kiutube2 build (C++20 rewrite). With M5 the legacy C (src/) left the
+#     repository — this is the only build; see docs/CPP20-REWRITE.md.
+# ES: CMake de kiutube2 (reescritura C++20). Con el M5 el C legado (src/)
+#     salió del repositorio — este es el único build.
+# ZH: kiutube2（C++20 重写）的 CMake。M5 起旧 C 代码（src/）已离开仓库
+#     —— 这是唯一的构建方式；见 docs/CPP20-REWRITE.md。
 cmake_minimum_required(VERSION 3.28)
 project(kiutube2 VERSION 0.1.0 LANGUAGES C CXX)
 
@@ -115,10 +115,19 @@ endif()
 # EN: pocketfft ships pocketfft_hdronly.h at the repository root.
 # ES: pocketfft trae pocketfft_hdronly.h en la raíz del repositorio.
 # ZH: pocketfft 的 pocketfft_hdronly.h 位于仓库根目录。
-# PT: includes SYSTEM: warnings de terceiros não quebram o -Werror.
+# PT: Includes SYSTEM: warnings de terceiros não quebram o -Werror.
+#     compat/webm: demux webm do kew (TU C único em decoder_impl.c — o
+#     corpo compila ao ver MINIAUDIO_IMPLEMENTATION), mantido como spec
+#     implementada; nestegg/miniaudio continuam vendored em include/.
 # EN: SYSTEM includes: third-party warnings do not break -Werror.
+#     compat/webm: kew's webm demuxer (single C TU in decoder_impl.c — the
+#     body compiles on MINIAUDIO_IMPLEMENTATION), kept as the implemented
+#     spec; nestegg/miniaudio stay vendored under include/.
 # ES: includes SYSTEM: los warnings de terceros no rompen el -Werror.
-# ZH: SYSTEM includes：第三方警告不会触发 -Werror。
+#     compat/webm: demuxer webm del kew (TU C único), mantenido como spec.
+# ZH: SYSTEM includes：第三方警告不会触发 -Werror。compat/webm：kew 的 webm
+#     解封装器（decoder_impl.c 中唯一 C TU —— 看到 MINIAUDIO_IMPLEMENTATION
+#     时编译本体），作为已实现的规范保留；nestegg/miniaudio 仍在 include/。
 add_library(kiutube2_deps INTERFACE)
 target_include_directories(kiutube2_deps SYSTEM INTERFACE
   ${LUA_INCLUDE_DIR}
@@ -126,8 +135,7 @@ target_include_directories(kiutube2_deps SYSTEM INTERFACE
   ${magic_enum_SOURCE_DIR}/include
   ${pocketfft_SOURCE_DIR}
   ${CMAKE_SOURCE_DIR}/include
-  ${CMAKE_SOURCE_DIR}/include/miniaudio
-  ${CMAKE_SOURCE_DIR}/src/sound)
+  ${CMAKE_SOURCE_DIR}/include/miniaudio)
 target_link_libraries(kiutube2_deps INTERFACE Threads::Threads dl ${LUA_LIBRARY})
 
 # PT: miniaudio no Linux fala ALSA; se não houver, cai em null backend (sem som).

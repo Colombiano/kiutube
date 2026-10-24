@@ -15,50 +15,22 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install build essentials
-        run: sudo apt-get update && sudo apt-get install -y build-essential
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake pkg-config
 
       - name: Install dependencies
-        run: sudo apt install -y libcurl4-openssl-dev libtag1-dev libfaad-dev libogg-dev libfftw3-dev libopus-dev libopusfile-dev libvorbis-dev libchafa-dev libavformat-dev libstb-dev libglib2.0-dev libgdk-pixbuf-2.0-dev
+        # PT: deps do kiutube2 (reescrita C++20): Lua 5.4 (sol2), taglib,
+        #     curl, opus/opusfile, vorbis/ogg, chafa (capa TUI). Qt 6 e
+        #     sdbus-c++ são opcionais (stub/FetchContent).
+        run: sudo apt install -y liblua5.4-dev libtag1-dev libcurl4-openssl-dev libopus-dev libopusfile-dev libvorbis-dev libogg-dev libchafa-dev
 
-      - name: Build code
-        run: make
+      - name: Configure
+        run: cmake -B build
 
-      - name: Clean build artifacts
-        run: make clean
+      - name: Build
+        run: cmake --build build -j
 
-      - name: Build code without FAAD
-        run: make USE_FAAD=0
-
-      - name: Run simple tests
-        run: |
-          set -e  # exit on first failure
-
-          # Set a clean config
-          export XDG_CONFIG_HOME=$PWD/.config
-          mkdir -p "$XDG_CONFIG_HOME/kew"
-          touch "$XDG_CONFIG_HOME/kew/kewrc"
-
-          # Create an empty library
-          mkdir -p tests/empty
-          ./kew path "$PWD/tests/empty"
-
-          # Test running a song with empty library
-          output=$(./kew song 2>&1)
-          echo "$output"
-          if [[ ! "$output" =~ "No Music found" ]]; then
-            echo "❌ 'No Music found' test failed"
-            exit 1
-          fi
-          echo "✅ Empty library test passed"
-
-          # Test --version
-          version_output=$(./kew --version)
-          echo "$version_output"
-          if [[ -z "$version_output" ]]; then
-            echo "❌ Version test failed"
-            exit 1
-          fi
-          echo "✅ Version test passed"
+      - name: Run smoke tests
+        run: ctest --test-dir build --output-on-failure

@@ -23,7 +23,7 @@
 //     inline.
 // ZH: webm.h 要求本 TU 引入 miniaudio，并内联携带 ma_webm 实现。
 #include "miniaudio.h"
-#include "webm.h"
+#include "compat/webm/webm.h"
 
 namespace audio
 {
