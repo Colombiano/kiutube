@@ -56,6 +56,16 @@ sistema, compila com stub de mesma API. Nota de licença: Qt/QCustomPlot
 são GPL-3 — o binário kiutube2 com GUI é efetivamente GPL-3; o núcleo C
 permanece GPL-2.
 
+**F8 YTM + CLI --ytm (M4f)**: `net/ytm` (port síncrono de
+src/ytm/ytm.cpp: yt-dlp com templates --print — atenção ao escape: `\t`
+no literal C++ vira TAB real no comando; `\\t` quebraria o parse). F8 na
+TUI: prompt YTM → busca em background (offload) → resultados com filtro
+substring ao vivo → Enter baixa (destino: library_path ou
+~/.cache/kiutube2/streams) e toca, re-escaneando a biblioteca. CLI
+headless: `kiutube2 --ytm search|play "<query>"` (search lista e sai; play
+baixa e abre o TUI tocando). Gate PTY: F8 → busca real → download → sink
+input pactl.
+
 **M0 — fundação**: scheduler de corrotinas (epoll + timers + eventfd),
 terminal layer própria em C++, harness PTY, build CMake `-Werror`.
 
@@ -218,6 +228,16 @@ the system it builds with a same-API stub. License note: Qt/QCustomPlot
 are GPL-3 — the kiutube2 binary with GUI is effectively GPL-3; the C core
 stays GPL-2.
 
+**F8 YTM + --ytm CLI (M4f)**: `net/ytm` (synchronous port of
+src/ytm/ytm.cpp: yt-dlp with --print templates — mind the escape: `\t` in
+the C++ literal becomes a REAL TAB in the command; `\\t` would break the
+parse). F8 in the TUI: YTM prompt -> background search (offload) ->
+results with live substring filter -> Enter downloads (to library_path or
+~/.cache/kiutube2/streams) and plays, rescanning the library. Headless
+CLI: `kiutube2 --ytm search|play "<query>"` (search lists and exits; play
+downloads and opens the TUI playing). PTY gate: F8 -> real search ->
+download -> pactl sink input.
+
 **M0 — foundation**: coroutine scheduler (epoll + timers + eventfd), own C++
 terminal layer, PTY smoke harness, CMake `-Werror` build.
 
@@ -378,6 +398,14 @@ Cerrar por la X alinea el modo en la TUI vía `post_function`.
 misma API. Nota de licencia: Qt/QCustomPlot son GPL-3 — el binario
 kiutube2 con GUI es efectivamente GPL-3; el núcleo C sigue GPL-2.
 
+**F8 YTM + CLI --ytm (M4f)**: `net/ytm` (port síncrono de
+src/ytm/ytm.cpp: yt-dlp con templates --print — ojo al escape: `\t` en el
+literal C++ se vuelve TAB real en el comando). F8 en la TUI: prompt YTM ->
+búsqueda en background -> resultados con filtro substring en vivo -> Enter
+descarga y reproduce, re-escaneando la biblioteca. CLI headless:
+`kiutube2 --ytm search|play "<query>"`. Gate PTY: F8 -> búsqueda real ->
+descarga -> sink input pactl.
+
 **M0 — fundación**: scheduler de corrutinas (epoll + timers + eventfd),
 terminal layer propia en C++, harness PTY, build CMake `-Werror`.
 
@@ -534,6 +562,15 @@ inferno 渐变 + 色条，类似 espectrograma2d.png），全分辨率渲染。�
 （CLI viz 测试）。系统无 Qt 时以同 API stub 编译。许可说明：Qt/
 QCustomPlot 为 GPL-3 —— 含 GUI 的 kiutube2 二进制实际为 GPL-3；C 核心
 仍为 GPL-2。
+
+**F8 YTM + CLI --ytm（M4f）**：`net/ytm`（src/ytm/ytm.cpp 的同步移植：
+yt-dlp 使用 --print 模板 —— 注意转义：C++ 字面量中的 `\t` 会变成
+命令中的真实 TAB；`\\t` 会使解析断裂）。TUI 中按 F8：YTM 输入框 ->
+后台搜索（offload）-> 结果实时子串过滤 -> Enter 下载（目标为
+library_path 或 ~/.cache/kiutube2/streams）并播放，同时重扫曲库。无头
+CLI：`kiutube2 --ytm search|play "<query>"`（search 列出后退出；play
+下载后进入 TUI 播放）。PTY 门槛：F8 -> 真实搜索 -> 下载 -> pactl
+sink input。
 
 **M0 —— 基础**：协程调度器（epoll + 定时器 + eventfd）、自研 C++ 终端
 层、PTY 冒烟 harness、CMake `-Werror` 构建。
