@@ -48,34 +48,46 @@ FetchContent_Declare(pocketfft
   GIT_REPOSITORY https://github.com/mreineck/pocketfft.git
   GIT_TAG 81d171a6d5562e3aaa2c73489b70f564c633ff81
   GIT_SHALLOW FALSE)
-FetchContent_MakeAvailable(sol2 pocketfft)
+FetchContent_Declare(magic_enum
+  GIT_REPOSITORY https://github.com/Neargye/magic_enum.git
+  GIT_TAG v0.9.7
+  GIT_SHALLOW TRUE)
+FetchContent_MakeAvailable(sol2 pocketfft magic_enum)
 
 # PT: sol2 precisa dos headers do Lua 5.4 (PUC Lua permanece C — decisão arquitetural).
 # EN: sol2 needs the Lua 5.4 headers (PUC Lua stays C — architectural decision).
 # ES: sol2 necesita los headers de Lua 5.4 (PUC Lua permanece C — decisión arquitectónica).
 # ZH: sol2 需要 Lua 5.4 的头文件（PUC Lua 保持为 C —— 架构决策）。
 find_path(LUA_INCLUDE_DIR lua.hpp PATH_SUFFIXES lua5.4 lua)
-if(NOT LUA_INCLUDE_DIR)
-  message(FATAL_ERROR "Lua 5.4 headers not found (install liblua5.4-dev)")
+find_library(LUA_LIBRARY NAMES lua5.4 lua-5.4 lua)
+if(NOT LUA_INCLUDE_DIR OR NOT LUA_LIBRARY)
+  message(FATAL_ERROR "Lua 5.4 not found (install liblua5.4-dev)")
 endif()
 
 # PT: pocketfft traz pocketfft_hdronly.h na raiz do repositório.
 # EN: pocketfft ships pocketfft_hdronly.h at the repository root.
 # ES: pocketfft trae pocketfft_hdronly.h en la raíz del repositorio.
-# ZH: pocketfft 的 pocketfft_hdronhdronly.h 位于仓库根目录。
+# ZH: pocketfft 的 pocketfft_hdronly.h 位于仓库根目录。
+# PT: includes SYSTEM: warnings de terceiros não quebram o -Werror.
+# EN: SYSTEM includes: third-party warnings do not break -Werror.
+# ES: includes SYSTEM: los warnings de terceros no rompen el -Werror.
+# ZH: SYSTEM includes：第三方警告不会触发 -Werror。
 add_library(kiutube2_deps INTERFACE)
-target_include_directories(kiutube2_deps INTERFACE
+target_include_directories(kiutube2_deps SYSTEM INTERFACE
   ${LUA_INCLUDE_DIR}
+  ${sol2_SOURCE_DIR}/include
+  ${magic_enum_SOURCE_DIR}/include
   ${pocketfft_SOURCE_DIR})
-target_link_libraries(kiutube2_deps INTERFACE Threads::Threads dl)
+target_link_libraries(kiutube2_deps INTERFACE Threads::Threads dl ${LUA_LIBRARY})
 
-# PT: Binário M0: abre terminal, renderiza 1 frame, ecoa teclas, sai.
-# EN: M0 binary: opens the terminal, renders 1 frame, echoes keys, exits.
-# ES: Binario M0: abre la terminal, renderiza 1 frame, tecla eco, sale.
-# ZH: M0 二进制：打开终端，渲染 1 帧，回显按键，退出。
+# PT: Binário M1: config em camadas (kewrc legado + init.lua sol2) + bindings.
+# EN: M1 binary: layered config (legacy kewrc + sol2 init.lua) + bindings.
+# ES: Binario M1: config en capas (kewrc legado + init.lua sol2) + bindings.
+# ZH: M1 二进制：分层配置（旧 kewrc + sol2 init.lua）+ 键绑定。
 add_executable(kiutube2
   player/main.cpp
   player/krt/scheduler.cpp
+  player/script/lua_state.cpp
   player/tui/term.cpp)
 target_include_directories(kiutube2 PRIVATE player)
 target_link_libraries(kiutube2 PRIVATE kiutube2_deps)
@@ -88,5 +100,14 @@ add_executable(scheduler_smoke player/tests/scheduler_smoke.cpp player/krt/sched
 target_include_directories(scheduler_smoke PRIVATE player)
 target_link_libraries(scheduler_smoke PRIVATE kiutube2_deps)
 
+# PT: Smoke test de settings/bindings (parse genérico + magic_enum + override).
+# EN: Settings/bindings smoke test (generic parsing + magic_enum + override).
+# ES: Smoke test de settings/bindings (parse genérico + magic_enum + override).
+# ZH: settings/bindings 冒烟测试（通用解析 + magic_enum + 覆盖）。
+add_executable(settings_smoke player/tests/settings_smoke.cpp)
+target_include_directories(settings_smoke PRIVATE player)
+target_link_libraries(settings_smoke PRIVATE kiutube2_deps)
+
 enable_testing()
 add_test(NAME scheduler_smoke COMMAND scheduler_smoke)
+add_test(NAME settings_smoke COMMAND settings_smoke)

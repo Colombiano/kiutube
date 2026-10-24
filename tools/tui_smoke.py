@@ -70,6 +70,11 @@ def main():
     ap.add_argument("--timeout", type=float, default=15.0)
     ap.add_argument("--rows", type=int, default=24)
     ap.add_argument("--cols", type=int, default=100)
+    # PT: --home DIR: roda o binário com HOME=DIR (injeção de init.lua/kewrc de teste).
+    # EN: --home DIR: runs the binary with HOME=DIR (test init.lua/kewrc injection).
+    # ES: --home DIR: ejecuta el binario con HOME=DIR (inyección de init.lua/kewrc de prueba).
+    # ZH: --home DIR：以 HOME=DIR 运行二进制（注入测试用 init.lua/kewrc）。
+    ap.add_argument("--home", default=None)
     args = ap.parse_args()
 
     expects = args.expect or []
@@ -81,7 +86,10 @@ def main():
     steps = [s for s in steps if s]
 
     master, slave = open_pty(args.rows, args.cols)
-    proc = subprocess.Popen([args.binary], stdin=slave, stdout=slave, stderr=slave, close_fds=True)
+    env = dict(os.environ)
+    if args.home:
+        env["HOME"] = args.home
+    proc = subprocess.Popen([args.binary], stdin=slave, stdout=slave, stderr=slave, close_fds=True, env=env)
     os.close(slave)
 
     out = []
