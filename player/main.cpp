@@ -1,38 +1,42 @@
-// PT: kiutube2 — marco M2: engine de áudio real. `kiutube2 play <arq...>`
-//     enfileira e toca (wav/mp3/flac via miniaudio); a TUI mostra faixa,
-//     posição, estado e volume; space/n/setas/+/- controlam o transporte.
-//     Gate M2: sink input ativo no PipeWire (pactl) com o processo tocando.
-// EN: kiutube2 — milestone M2: real audio engine. `kiutube2 play <file...>`
-//     enqueues and plays (wav/mp3/flac via miniaudio); the TUI shows track,
-//     position, state and volume; space/n/arrows/+/- control transport.
-//     M2 gate: active sink input on PipeWire (pactl) while the process plays.
-// ES: kiutube2 — hito M2: engine de audio real. `kiutube2 play <archivo...>`
-//     encola y reproduce (wav/mp3/flac vía miniaudio); la TUI muestra pista,
-//     posición, estado y volumen; space/n/flechas/+/- controlan el transporte.
-//     Gate M2: sink input activo en PipeWire (pactl) con el proceso sonando.
-// ZH: kiutube2 —— 里程碑 M2：真实音频引擎。`kiutube2 play <文件...>` 入队并播放
-//     （经 miniaudio 的 wav/mp3/flac）；TUI 显示曲目、位置、状态与音量；
-//     space/n/方向键/+/- 控制传输。M2 门槛：进程播放时 PipeWire 上存在活跃
-//     sink input（pactl 验证）。
+// PT: kiutube2 — marco M3b/M3c: biblioteca com busca fuzzy (métrica do
+//     Typesense) via picker na TUI + letras do LRCLIB com view própria.
+//     'l' abre a biblioteca (digite para filtrar, Enter toca, ESC fecha);
+//     'g' busca a letra da faixa atual (rede em offload, nunca bloqueia).
+// EN: kiutube2 — milestone M3b/M3c: library with Typesense-metric fuzzy
+//     search through an in-TUI picker + LRCLIB lyrics with their own view.
+//     'l' opens the library (type to filter, Enter plays, ESC closes); 'g'
+//     fetches lyrics for the current track (network offloaded, never blocks).
+// ES: kiutube2 — hito M3b/M3c: biblioteca con búsqueda fuzzy (métrica de
+//     Typesense) vía picker en la TUI + letras de LRCLIB con vista propia.
+//     'l' abre la biblioteca (teclea para filtrar, Enter reproduce, ESC
+//     cierra); 'g' busca la letra de la pista actual (red en offload).
+// ZH: kiutube2 —— 里程碑 M3b/M3c：带模糊搜索（Typesense 度量）的曲库
+//     TUI 选择器 + LRCLIB 歌词视图。'l' 打开曲库（输入即过滤，Enter 播放，
+//     ESC 关闭）；'g' 获取当前曲目歌词（网络经 offload，绝不阻塞）。
 #include "app/bindings.hpp"
 #include "app/paths.hpp"
 #include "app/settings.hpp"
 #include "audio/engine.hpp"
 #include "krt/log.hpp"
 #include "krt/scheduler.hpp"
+#include "library/fuzzy.hpp"
+#include "library/library.hpp"
+#include "net/lrclib.hpp"
 #include "script/lua_state.hpp"
 #include "tui/cell_buffer.hpp"
 #include "tui/term.hpp"
 
-#include <chrono>
 #include <atomic>
+#include <chrono>
 #include <cstdio>
+#include <deque>
 #include <exception>
 #include <filesystem>
 #include <fstream>
 #include <format>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace
@@ -49,8 +53,8 @@ std::string_view trim(std::string_view s)
         return s;
 }
 
-// PT: kewrc legado (read-only) — igual ao M1. / EN: legacy kewrc (read-only) — same as M1.
-// ES: kewrc legado (read-only) — igual al M1. / ZH: 旧 kewrc（只读）—— 与 M1 相同。
+// PT: kewrc legado (read-only) — igual ao M1/M2. / EN: legacy kewrc (read-only) — same as M1/M2.
+// ES: kewrc legado (read-only) — igual al M1/M2. / ZH: 旧 kewrc（只读）—— 与 M1/M2 相同。
 void load_kewrc(const std::filesystem::path &path, app::Settings &st, app::BindingMap &map)
 {
         std::ifstream f(path);
@@ -82,22 +86,64 @@ void load_kewrc(const std::filesystem::path &path, app::Settings &st, app::Bindi
         }
 }
 
-// PT: mm:ss neutro (sem i18n). / EN: neutral mm:ss (no i18n).
-// ES: mm:ss neutro (sin i18n). / ZH: 中性 mm:ss（无 i18n）。
 std::string mmss(std::chrono::microseconds us)
 {
         const auto s = std::chrono::duration_cast<std::chrono::seconds>(us).count();
         return std::format("{:02}:{:02}", s / 60, s % 60);
 }
 
-// PT: Tela M2 compartilhada entre o loop de teclas e o relógio de UI — as
-//     duas corrotinas rodam na MESMA thread (scheduler), sem race.
-// EN: M2 screen shared by the key loop and the UI clock — both coroutines
-//     run on the SAME thread (scheduler), race-free.
-// ES: Pantalla M2 compartida entre el bucle de teclas y el reloj de UI — las
-//     dos corrutinas corren en el MISMO hilo (scheduler), sin race.
-// ZH: M2 屏幕由按键循环与 UI 时钟共享 —— 两个协程运行在相同线程（调度器）上，
-//     无竞争。
+// PT: "Uploader - Artista - Título [videoId].webm" -> (artista, título):
+//     artista = antes do PRIMEIRO " - "; título = depois do ÚLTIMO " - "
+//     (nomes YTM duplicam o artista; o miolo é ruído de upload).
+// EN: "Uploader - Artist - Title [videoId].webm" -> (artist, title): artist
+//     = before the FIRST " - "; title = after the LAST " - " (YTM names
+//     duplicate the artist; the middle is upload noise).
+// ES: "Uploader - Artista - Título [videoId].webm" -> (artista, título):
+//     artista = antes del PRIMER " - "; título = después del ÚLTIMO " - ".
+// ZH: "上传者 - 艺人 - 标题 [videoId].webm" -> (艺人, 标题)：艺人取第一个 " - "
+//     之前；标题取最后一个 " - " 之后（YTM 命名常重复艺人，中间是上传噪声）。
+std::pair<std::string, std::string> split_artist_title(std::string_view filename)
+{
+        std::string base(filename);
+        if (const auto dot = base.find_last_of('.'); dot != std::string::npos)
+                base.erase(dot);
+        if (const auto bracket = base.find('['); bracket != std::string::npos)
+        {
+                base.erase(bracket);
+                while (!base.empty() && base.back() == ' ')
+                        base.pop_back();
+        }
+        const auto first = base.find(" - ");
+        if (first == std::string::npos)
+                return {"", base};
+        const auto last = base.rfind(" - ");
+        const std::string artist = base.substr(0, first);
+        const std::string title = last > first ? base.substr(last + 3) : base.substr(first + 3);
+        return {artist, title};
+}
+
+// PT: Estado do picker de biblioteca (compartilhado com o relógio de UI).
+// EN: Library picker state (shared with the UI clock).
+// ES: Estado del picker de biblioteca (compartido con el reloj de UI).
+// ZH: 曲库选择器状态（与 UI 时钟共享）。
+struct Picker
+{
+        bool active = false;
+        std::string filter;
+        std::vector<library::Scored> matches;
+        std::size_t sel = 0;
+};
+
+// PT: Estado da view de letras. / EN: Lyrics view state.
+// ES: Estado de la vista de letras. / ZH: 歌词视图状态。
+struct LyricsPane
+{
+        bool active = false;
+        std::string text;
+        bool loading = false;
+        bool not_found = false;
+};
+
 struct Ui
 {
         tui::Term term;
@@ -105,10 +151,12 @@ struct Ui
         audio::Engine &engine;
         app::Settings &settings;
         std::string last_key = "-";
+        const std::vector<library::Track> *tracks = nullptr; // PT: preenchido após o scan / set after scan
+        Picker picker;
+        LyricsPane lyrics;
 
-        Ui(audio::Engine &e, app::Settings &s, int rows_hint = 0) : buf(24, 100), engine(e), settings(s)
+        Ui(audio::Engine &e, app::Settings &s) : buf(24, 100), engine(e), settings(s)
         {
-                (void)rows_hint;
                 buf = tui::CellBuffer(term.rows(), term.cols());
         }
 
@@ -116,64 +164,106 @@ struct Ui
         {
                 const auto cur = engine.current();
                 const auto pos = engine.position();
-                // PT: Telemetria do Heisenbug: valores brutos a cada redraw.
-                // EN: Heisenbug telemetry: raw values at every redraw.
-                // ES: Telemetría del Heisenbug: valores brutos en cada redraw.
-                // ZH: Heisenbug 遥测：每次重绘的原始值。
-                krt::log::debug("ui: pos={}us playing={} cur={} queue={}", pos.count(), engine.is_playing(),
-                                cur.path.empty() ? "none" : "set", engine.queue_size());
                 buf.clear();
-                buf.put(1, 2, "kiutube2 - M2 / PT / EN / ES / ZH");
-                buf.put(3, 2, "PT: engine de audio (miniaudio) / EN: audio engine / ES: motor de audio / ZH: \xe9\x9f\xb3\xe9\xa2\x91\xe5\xbc\x95\xe6\x93\x8e");
+                buf.put(1, 2, "kiutube2 - M3 / PT / EN / ES / ZH");
+                buf.put(3, 2, "PT: biblioteca fuzzy (Typesense) + letras LRCLIB");
+                buf.put(4, 2, "EN: fuzzy library (Typesense) + LRCLIB lyrics");
+                buf.put(5, 2, "ES: biblioteca fuzzy (Typesense) + letras LRCLIB");
+                buf.put(6, 2, "ZH: Typesense \xe6\xa8\xa1\xe7\xb3\x8a\xe6\x90\x9c\xe7\xb4\xa2\xe6\x9b\xb2\xe5\xba\x93 + LRCLIB \xe6\xad\x8c\xe8\xaf\x8d");
                 if (cur.path.empty())
                 {
-                        buf.put(5, 2, "kiutube2 play <arquivo / file / archivo / \xe6\x96\x87\xe4\xbb\xb6> ...");
-                        buf.put(6, 2, "key " + last_key); // PT: eco de tecla também sem faixa. EN: key echo also without a track.
-                                                          // ES: eco de tecla también sin pista. / ZH: 无曲目时同样回显按键。
+                        buf.put(8, 2, "kiutube2 play <arquivo / file / archivo / \xe6\x96\x87\xe4\xbb\xb6> ...   keys: l/g");
+                        buf.put(9, 2, "key " + last_key);
                 }
                 else
                 {
-                        buf.put(5, 2, cur.title);
-                        // PT: pos exibida limitada à duração: o ring pode continuar
-                        //     tocando após o EOF do decoder (gapless/dreno).
-                        // EN: displayed position clamped to duration: the ring may
-                        //     keep playing past the decoder EOF (gapless/drain).
-                        // ES: pos mostrada limitada a la duración: el ring puede
-                        //     seguir sonando tras el EOF del decoder (gapless/dreno).
-                        // ZH: 显示位置限制在时长内：解码器 EOF 后环形缓冲可能继续
-                        //     播放（gapless/排空）。
+                        buf.put(8, 2, cur.title);
                         const auto shown_pos = std::min(pos, cur.duration);
                         const std::string line = mmss(shown_pos) + " / " + mmss(cur.duration) +
                                                  (engine.is_playing() ? "  |>" : "  ||") + "  vol " +
                                                  std::to_string(static_cast<int>(engine.volume() * 100.0f + 0.5f)) +
                                                  "%  queue " + std::to_string(engine.queue_size()) +
                                                  "  key " + last_key;
-                        buf.put(6, 2, line);
+                        buf.put(9, 2, line);
                 }
-                // PT: Linha de config SEMPRE visível (gates M1 dependem dela).
-                // EN: Config line always visible (M1 gates depend on it).
-                // ES: Línea de config SIEMPRE visible (los gates M1 dependen de ella).
-                // ZH: 配置行始终可见（M1 门槛依赖它）。
                 std::string cfg = "volume=" + std::to_string(settings.volume) + " shuffle=" +
                                   (settings.shuffle ? "on" : "off") + " visualizer=" +
-                                  (settings.visualizer ? "on" : "off") + " bindings ok";
-                buf.put(8, 2, cfg);
-                if (!settings.library_path.empty())
-                        buf.put(9, 2, "path=" + settings.library_path);
+                                  (settings.visualizer ? "on" : "off") +
+                                  (tracks ? " lib=" + std::to_string(tracks->size()) : "");
+                buf.put(11, 2, cfg);
+
+                if (picker.active && tracks)
+                        draw_picker();
+                if (lyrics.active)
+                        draw_lyrics();
                 term.write_segments(buf.flush_diff());
+        }
+
+        void draw_picker()
+        {
+                buf.put(13, 2, "LIB> " + picker.filter + "_");
+                const std::size_t max_rows = 8;
+                if (picker.sel >= picker.matches.size())
+                        picker.sel = picker.matches.empty() ? 0 : picker.matches.size() - 1;
+                const std::size_t start = picker.sel >= max_rows ? picker.sel - max_rows + 1 : 0;
+                for (std::size_t r = 0; r < max_rows && start + r < picker.matches.size(); ++r)
+                {
+                        const auto &m = picker.matches[start + r];
+                        const auto &t = (*tracks)[static_cast<std::size_t>(m.index)];
+                        std::string line = (start + r == picker.sel ? "> " : "  ") + t.title;
+                        if (!t.artist.empty())
+                                line += "  --  " + t.artist;
+                        buf.put(14 + r, 2, line);
+                }
+                if (picker.matches.empty())
+                        buf.put(14, 2, "(vazio / empty / vacío / 空)");
+        }
+
+        void draw_lyrics()
+        {
+                if (lyrics.loading)
+                {
+                        buf.put(13, 2, "LRCLIB... / fetching / buscando / 获取中");
+                        return;
+                }
+                if (lyrics.not_found)
+                {
+                        buf.put(13, 2, "letra nao encontrada / lyrics not found / letra no encontrada / 未找到歌词");
+                        return;
+                }
+                std::size_t row = 13;
+                std::size_t count = 0;
+                std::string_view rest(lyrics.text);
+                while (!rest.empty() && count < 10)
+                {
+                        const auto nl = rest.find('\n');
+                        std::string_view line = rest.substr(0, nl == std::string_view::npos ? rest.size() : nl);
+                        // PT: remove prefixo de timestamp LRC "[mm:ss.xx]".
+                        // EN: strips LRC timestamp prefix "[mm:ss.xx]".
+                        // ES: quita el prefijo de timestamp LRC "[mm:ss.xx]".
+                        // ZH: 去除 LRC 时间戳前缀 "[mm:ss.xx]"。
+                        while (!line.empty() && line.front() == '[')
+                        {
+                                const auto close = line.find(']');
+                                if (close == std::string_view::npos)
+                                        break;
+                                line.remove_prefix(close + 1);
+                        }
+                        if (!line.empty())
+                        {
+                                buf.put(row, 2, std::string(line));
+                                ++row;
+                                ++count;
+                        }
+                        if (nl == std::string_view::npos)
+                                break;
+                        rest.remove_prefix(nl + 1);
+                }
         }
 };
 
 krt::Task<void> ui_clock(Ui &ui, std::atomic<bool> &alive)
 {
-        // PT: Relógio: redesenha 4x/s para a posição avançar na tela; para
-        //     quando alive baixa (senão seus timers segurariam o run-loop).
-        // EN: Clock: redraws 4x/s so the position advances on screen; stops
-        //     when alive drops (otherwise its timers would hold the run-loop).
-        // ES: Reloj: redibuja 4x/s para que la posición avance en pantalla;
-        //     para cuando alive baja (si no, sus timers retendrían el run-loop).
-        // ZH: 时钟：每秒 4 次重绘，使位置在屏幕上前进；alive 置假后停止
-        //     （否则它的定时器会拖住 run-loop）。
         while (alive.load(std::memory_order_acquire))
         {
                 co_await krt::sleep(250ms);
@@ -181,9 +271,30 @@ krt::Task<void> ui_clock(Ui &ui, std::atomic<bool> &alive)
         }
 }
 
+// PT: Busca a letra em background (rede síncrona dentro de offload) e
+//     preenche o painel — o relógio de UI redesenha quando chegar.
+// EN: Fetches lyrics in the background (sync network inside offload) and
+//     fills the pane — the UI clock redraws when it arrives.
+// ES: Busca la letra en background (red síncrona dentro de offload) y llena
+//     el panel — el reloj de UI redibuja cuando llegue.
+// ZH: 后台获取歌词（同步网络置于 offload 中）并填充面板 —— UI 时钟在到达后
+//     重绘。
+krt::Task<void> fetch_lyrics_task(std::string artist, std::string title, int duration_seconds,
+                                  LyricsPane &pane)
+{
+        auto lrc = co_await krt::offload([a = std::move(artist), t = std::move(title), duration_seconds] {
+                return net::fetch_lyrics(a, t, duration_seconds);
+        });
+        pane.loading = false;
+        if (lrc.has_value())
+                pane.text = std::move(*lrc);
+        else
+                pane.not_found = true;
+}
+
 krt::Task<void> app_main(audio::Engine &engine, Ui &ui, std::atomic<bool> &alive)
 {
-        krt::log::info("boot: kiutube2 M2");
+        krt::log::info("boot: kiutube2 M3");
 
         app::Settings settings;
         app::BindingMap map;
@@ -192,11 +303,85 @@ krt::Task<void> app_main(audio::Engine &engine, Ui &ui, std::atomic<bool> &alive
         script::LuaState lua;
         lua.open_config((app::config_dir("kiutube2") / "init.lua").string(), settings, map);
         ui.settings = settings;
+
+        // PT: Scan da biblioteca em offload (I/O) antes de entrar no loop.
+        // EN: Library scan offloaded (I/O) before entering the loop.
+        // ES: Scan de la biblioteca en offload (E/S) antes de entrar al bucle.
+        // ZH: 在进入循环前经 offload 扫描曲库（I/O）。
+        std::vector<library::Track> tracks;
+        if (!settings.library_path.empty())
+        {
+                tracks = co_await krt::offload(
+                    [&] { return library::scan(settings.library_path); });
+                krt::log::info("library: {} faixas / tracks / pistas / 曲目", tracks.size());
+        }
+        ui.tracks = &tracks;
+
+        std::vector<krt::Task<void>> bg_tasks; // PT: lyrics tasks mantidas vivas / kept alive
+
+        auto recompute = [&] {
+                ui.picker.matches = library::fuzzy_filter(tracks, ui.picker.filter);
+                if (ui.picker.sel >= ui.picker.matches.size())
+                        ui.picker.sel = 0;
+        };
+
         ui.draw();
 
         for (;;)
         {
                 const auto ev = co_await ui.term.next_event();
+
+                // PT: Modo picker: teclas crúas (sem BindingMap) editam o filtro.
+                // EN: Picker mode: raw keys (no BindingMap) edit the filter.
+                // ES: Modo picker: teclas crudas (sin BindingMap) editan el filtro.
+                // ZH: 选择器模式：原始按键（不经 BindingMap）编辑过滤器。
+                if (ui.picker.active)
+                {
+                        bool handled = true;
+                        if (ev.key == tui::Key::Esc)
+                                ui.picker.active = false;
+                        else if (ev.key == tui::Key::Enter && !ui.picker.matches.empty() &&
+                                 ui.picker.sel < ui.picker.matches.size())
+                        {
+                                const auto &t = tracks[static_cast<std::size_t>(
+                                    ui.picker.matches[ui.picker.sel].index)];
+                                engine.enqueue(t.path);
+                                engine.next(); // PT: troca imediatamente / EN: switch immediately / ZH: 立即切换
+                                engine.play();
+                                ui.picker.active = false;
+                        }
+                        else if (ev.key == tui::Key::Up && ui.picker.sel > 0)
+                                --ui.picker.sel;
+                        else if (ev.key == tui::Key::Down &&
+                                 ui.picker.sel + 1 < ui.picker.matches.size())
+                                ++ui.picker.sel;
+                        else if (ev.key == tui::Key::Backspace && !ui.picker.filter.empty())
+                        {
+                                ui.picker.filter.pop_back();
+                                ui.picker.sel = 0;
+                                recompute();
+                        }
+                        else if (ev.key == tui::Key::Char && ev.ch >= 0x20 && ev.ch < 0x7f)
+                        {
+                                ui.picker.filter += static_cast<char>(ev.ch);
+                                ui.picker.sel = 0;
+                                recompute();
+                        }
+                        else
+                                handled = false;
+                        if (handled)
+                        {
+                                ui.draw();
+                                continue;
+                        }
+                }
+                if (ui.lyrics.active && ev.key == tui::Key::Esc)
+                {
+                        ui.lyrics.active = false;
+                        ui.draw();
+                        continue;
+                }
+
                 if (const auto action = map.resolve(ev))
                 {
                         switch (*action)
@@ -228,6 +413,29 @@ krt::Task<void> app_main(audio::Engine &engine, Ui &ui, std::atomic<bool> &alive
                         case app::Event::VolDown:
                                 engine.set_volume(engine.volume() - 0.05f);
                                 break;
+                        case app::Event::Library:
+                                ui.picker.active = true;
+                                ui.picker.filter.clear();
+                                ui.picker.sel = 0;
+                                recompute();
+                                break;
+                        case app::Event::Lyrics:
+                        {
+                                const auto cur = engine.current();
+                                if (!cur.path.empty())
+                                {
+                                        ui.lyrics = LyricsPane{};
+                                        ui.lyrics.active = true;
+                                        ui.lyrics.loading = true;
+                                        const auto [artist, title] = split_artist_title(cur.title);
+                                        const int dur = static_cast<int>(
+                                            std::chrono::duration_cast<std::chrono::seconds>(cur.duration)
+                                                .count());
+                                        bg_tasks.push_back(fetch_lyrics_task(artist, title, dur, ui.lyrics));
+                                        bg_tasks.back().start();
+                                }
+                                break;
+                        }
                         default:
                                 break;
                         }
@@ -240,14 +448,6 @@ krt::Task<void> app_main(audio::Engine &engine, Ui &ui, std::atomic<bool> &alive
 
 } // namespace
 
-// PT: main carrega o engine ANTES das tasks: destruição em ordem reversa
-//     garante que feeder/app morram antes do engine (elas o referenciam).
-// EN: main declares the engine BEFORE the tasks: reverse destruction order
-//     guarantees feeder/app die before the engine (they reference it).
-// ES: main declara el engine ANTES de las tasks: la destrucción en orden
-//     inverso garantiza que feeder/app mueran antes del engine (lo referencian).
-// ZH: main 在 tasks 之前声明 engine：逆序销毁保证 feeder/app 先于 engine
-//     销毁（它们引用 engine）。
 int main(int argc, char **argv)
 {
         audio::Engine engine;

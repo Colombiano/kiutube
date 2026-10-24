@@ -70,6 +70,13 @@ inline constexpr Binding kDefaultBindings[] = {
     {{tui::Key::Char, '+', tui::MOD_NONE}, Event::VolUp},
     {{tui::Key::Char, '=', tui::MOD_NONE}, Event::VolUp},
     {{tui::Key::Char, '-', tui::MOD_NONE}, Event::VolDown},
+    // PT: Biblioteca (M3): 'l' abre o picker, 'g' busca letra da faixa atual.
+    // EN: Library (M3): 'l' opens the picker, 'g' fetches lyrics for the current track.
+    // ES: Biblioteca (M3): 'l' abre el picker, 'g' busca la letra de la pista actual.
+    // ZH: 曲库（M3）：'l' 打开选择器，'g' 获取当前曲目歌词。
+    {{tui::Key::Char, 'l', tui::MOD_NONE}, Event::Library},
+    {{tui::Key::Char, 'L', tui::MOD_NONE}, Event::Library},
+    {{tui::Key::Char, 'g', tui::MOD_NONE}, Event::Lyrics},
 };
 
 // PT: Parse de nome de tecla (case-insensitive): "x", "F8", "enter", "ctrl-x",

@@ -101,13 +101,15 @@ find_library(OPUS_LIBRARY opus)
 find_library(VORBISFILE_LIBRARY vorbisfile)
 find_library(VORBIS_LIBRARY vorbis)
 find_library(OGG_LIBRARY ogg)
+find_library(TAGLIB_LIBRARY tag)
+find_library(CURL_LIBRARY curl)
 # PT: headers de opus/opusfile em subdir (Debian: /usr/include/opus).
 # EN: opus/opusfile headers live in a subdir (Debian: /usr/include/opus).
 # ES: los headers de opus/opusfile están en un subdirectorio (Debian).
 # ZH: opus/opusfile 头文件位于子目录（Debian：/usr/include/opus）。
 find_path(OPUS_INCLUDE_DIR opusfile.h PATH_SUFFIXES opus)
 find_path(VORBIS_INCLUDE_DIR vorbisfile.h PATH_SUFFIXES vorbis)
-foreach(lib OPUSFILE_LIBRARY OPUS_LIBRARY VORBISFILE_LIBRARY VORBIS_LIBRARY OGG_LIBRARY)
+foreach(lib OPUSFILE_LIBRARY OPUS_LIBRARY VORBISFILE_LIBRARY VORBIS_LIBRARY OGG_LIBRARY TAGLIB_LIBRARY CURL_LIBRARY)
   if(${lib})
     target_link_libraries(kiutube2_deps INTERFACE ${${lib}})
   endif()
@@ -129,6 +131,9 @@ add_executable(kiutube2
   player/audio/decoder_impl.c
   player/audio/webm_decoder.cpp
   player/krt/scheduler.cpp
+  player/library/library.cpp
+  player/net/http.cpp
+  player/net/lrclib.cpp
   player/script/lua_state.cpp
   player/tui/term.cpp
   include/nestegg/nestegg.c)
@@ -172,3 +177,12 @@ enable_testing()
 add_test(NAME scheduler_smoke COMMAND scheduler_smoke)
 add_test(NAME settings_smoke COMMAND settings_smoke)
 add_test(NAME audio_smoke COMMAND audio_smoke)
+
+# PT: Smoke test de library + fuzzy (OSA typesense, scan taglib).
+# EN: Library + fuzzy smoke test (typesense OSA, taglib scan).
+# ES: Smoke test de library + fuzzy (OSA de typesense, scan taglib).
+# ZH: library + fuzzy 冒烟测试（typesense OSA、taglib 扫描）。
+add_executable(library_smoke player/tests/library_smoke.cpp player/library/library.cpp)
+target_include_directories(library_smoke PRIVATE player)
+target_link_libraries(library_smoke PRIVATE kiutube2_deps)
+add_test(NAME library_smoke COMMAND library_smoke)

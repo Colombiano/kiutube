@@ -40,7 +40,9 @@ enum class Event : std::uint16_t
         SeekBack,
         SeekForward,
         VolUp,
-        VolDown
+        VolDown,
+        Library,
+        Lyrics
 };
 
 struct Settings

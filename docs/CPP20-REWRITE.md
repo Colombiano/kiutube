@@ -20,7 +20,21 @@ Bibliotecas C maduras (miniaudio, decoders, demuxers, libcurl, chafa, PUC Lua)
 não são reescritas — são encapsuladas atrás de wrappers RAII com
 `extern "C"`.
 
-### Estado atual: M0 ✅ M1 ✅ M2 ✅
+### Estado atual: M0 ✅ M1 ✅ M2 ✅ M3 ✅
+
+**M3a — caches YTM**: `AnyDecoder` (apagamento de tipo sobre o concept, vtable
+estática) com cadeia de adapters na engine (miniaudio → webm); demux
+nestegg+opus/vorbis via shim RAII sobre a implementação C do kew
+(`src/sound/webm.h`, TU único em C). Gate: .webm real tocando com sink input
+pactl.
+
+**M3b — biblioteca fuzzy**: scan recursivo com taglib, busca fuzzy com a
+métrica OSA do Typesense (`src/art.cpp`), picker na TUI ('l': filtra
+digitando, Enter toca, ESC fecha).
+
+**M3c — letras LRCLIB**: `net/` (http síncrono + LRCLIB com retry e
+normalização de título), view de letras ('g'), fetch em offload sem
+bloquear a UI.
 
 **M0 — fundação**: scheduler de corrotinas (epoll + timers + eventfd),
 terminal layer própria em C++, harness PTY, build CMake `-Werror`.
@@ -60,10 +74,10 @@ player/
   main.cpp            # bootstrap: scheduler, terminal, app
   krt/                # runtime: scheduler, task, thread_pool, log
   audio/              # engine (miniaudio), Decoder concept (MaDecoder), ring SPSC
-  library/            # directory tree, metadata (taglib), fuzzy search, cache
+  library/            # taglib scan, fuzzy search (Typesense OSA) — real M3
   tui/                # term, cell_buffer, components (CRTP), views, visualizer
   app/                # settings, bindings, player state machine, queue
-  net/                # http (curl), lrclib, translate, ytm (migra de src/ytm/)
+  net/                # http (curl) + lrclib — real M3; ytm/translate migram no M4
   script/             # sol2: config Lua, keybindings, temas, hooks
   sys/                # MPRIS (sdbus-c++), notificações
 ```
@@ -110,8 +124,8 @@ Todo comentário, documento, string de UI e commit segue PT → EN → ES → ZH
 | M0 ✅ | Doc + CMake + krt + TUI vazia + harness PTY |
 | M1 ✅ | Settings tipadas (descritores constexpr), sol2 Lua config, bindings magic_enum, logging |
 | M2 ✅ | audio::Engine + Decoder concept + play/pause/seek/gapless + gate pactl |
-| M3 | library/playlist/search/lyrics/capa; demuxers (opus/vorbis/nestegg); migra ytm |
-| M4 | Views completas, visualizador pocketfft, F8 YTM no scheduler, CLI --ytm |
+| M3 ✅ | WebmDecoder (caches YTM), library taglib + fuzzy Typesense + picker, letras LRCLIB |
+| M4 | Views completas (playlist/faixa), visualizador pocketfft, capa chafa, F8 YTM, CLI --ytm, migra ytm p/ net |
 | M5 | MPRIS sdbus-c++, apaga src/ C, renomeia binário |
 
 ### Como buildar e testar
@@ -149,7 +163,20 @@ Boundary philosophy: **own your code, wrap what you don't need to own**.
 Mature C libraries (miniaudio, decoders, demuxers, libcurl, chafa, PUC Lua)
 are not rewritten — they are wrapped behind RAII `extern "C"` interfaces.
 
-### Current state: M0 ✅ M1 ✅ M2 ✅
+### Current state: M0 ✅ M1 ✅ M2 ✅ M3 ✅
+
+**M3a — YTM caches**: `AnyDecoder` (type erasure over the concept, static
+vtable) with an adapter chain in the engine (miniaudio → webm); nestegg+opus/
+vorbis demux through a RAII shim over kew's C implementation
+(`src/sound/webm.h`, single C TU). Gate: real .webm playing with a pactl
+sink input.
+
+**M3b — fuzzy library**: taglib recursive scan, fuzzy search with Typesense's
+OSA metric (`src/art.cpp`), in-TUI picker ('l': type to filter, Enter plays,
+ESC closes).
+
+**M3c — LRCLIB lyrics**: `net/` (sync http + LRCLIB with retry and title
+normalization), lyrics view ('g'), offloaded fetch that never blocks the UI.
 
 **M0 — foundation**: coroutine scheduler (epoll + timers + eventfd), own C++
 terminal layer, PTY smoke harness, CMake `-Werror` build.
@@ -188,10 +215,10 @@ player/
   main.cpp            # bootstrap: scheduler, terminal, app
   krt/                # runtime: scheduler, task, thread_pool, log
   audio/              # engine (miniaudio), Decoder concept (MaDecoder), SPSC ring
-  library/            # directory tree, metadata (taglib), fuzzy search, cache
+  library/            # taglib scan, fuzzy search (Typesense OSA) — real M3
   tui/                # term, cell_buffer, components (CRTP), views, visualizer
   app/                # settings, bindings, player state machine, queue
-  net/                # http (curl), lrclib, translate, ytm (migrates from src/ytm/)
+  net/                # http (curl) + lrclib — real M3; ytm/translate migrate M4
   script/             # sol2: Lua config, keybindings, themes, hooks
   sys/                # MPRIS (sdbus-c++), notifications
 ```
@@ -239,8 +266,8 @@ Every comment, document, UI string and commit follows PT → EN → ES → ZH.
 | M0 ✅ | Doc + CMake + krt + empty TUI + PTY harness |
 | M1 ✅ | Typed settings (constexpr descriptors), sol2 Lua config, magic_enum bindings, logging |
 | M2 ✅ | audio::Engine + Decoder concept + play/pause/seek/gapless + pactl gate |
-| M3 | library/playlist/search/lyrics/cover; demuxers (opus/vorbis/nestegg); ytm migration |
-| M4 | Full views, pocketfft visualizer, F8 YTM on the scheduler, --ytm CLI |
+| M3 ✅ | WebmDecoder (YTM caches), taglib library + Typesense fuzzy + picker, LRCLIB lyrics |
+| M4 | Full views (playlist/track), pocketfft visualizer, chafa cover, F8 YTM, --ytm CLI, ytm migration to net |
 | M5 | sdbus-c++ MPRIS, delete legacy src/ C, rename binary |
 
 ### Build and test
@@ -278,7 +305,21 @@ Filosofía de frontera: **own your code, wrap what you don't need to own**.
 Las bibliotecas C maduras (miniaudio, decoders, demuxers, libcurl, chafa, PUC
 Lua) no se reescriben — se encapsulan tras wrappers RAII con `extern "C"`.
 
-### Estado actual: M0 ✅ M1 ✅ M2 ✅
+### Estado actual: M0 ✅ M1 ✅ M2 ✅ M3 ✅
+
+**M3a — cachés YTM**: `AnyDecoder` (borrado de tipo sobre el concept, vtable
+estática) con cadena de adapters en la engine (miniaudio → webm); demux
+nestegg+opus/vorbis vía shim RAII sobre la implementación C de kew
+(`src/sound/webm.h`, TU único en C). Gate: .webm real sonando con sink input
+pactl.
+
+**M3b — biblioteca fuzzy**: scan recursivo con taglib, búsqueda fuzzy con la
+métrica OSA de Typesense (`src/art.cpp`), picker en la TUI ('l': filtra
+tecleando, Enter reproduce, ESC cierra).
+
+**M3c — letras LRCLIB**: `net/` (http síncrono + LRCLIB con retry y
+normalización del título), vista de letras ('g'), fetch en offload sin
+bloquear la UI.
 
 **M0 — fundación**: scheduler de corrutinas (epoll + timers + eventfd),
 terminal layer propia en C++, harness PTY, build CMake `-Werror`.
@@ -318,10 +359,10 @@ player/
   main.cpp            # bootstrap: scheduler, terminal, app
   krt/                # runtime: scheduler, task, thread_pool, log
   audio/              # engine (miniaudio), Decoder concept (MaDecoder), ring SPSC
-  library/            # directory tree, metadata (taglib), fuzzy search, cache
+  library/            # taglib scan, fuzzy search (Typesense OSA) — real M3
   tui/                # term, cell_buffer, components (CRTP), views, visualizer
   app/                # settings, bindings, player state machine, queue
-  net/                # http (curl), lrclib, translate, ytm (migra de src/ytm/)
+  net/                # http (curl) + lrclib — real M3; ytm/translate migram no M4
   script/             # sol2: config Lua, keybindings, temas, hooks
   sys/                # MPRIS (sdbus-c++), notificaciones
 ```
@@ -369,8 +410,8 @@ Todo comentario, documento, string de UI y commit sigue PT → EN → ES → ZH.
 | M0 ✅ | Doc + CMake + krt + TUI vacía + harness PTY |
 | M1 ✅ | Settings tipadas (descriptores constexpr), sol2 Lua config, bindings magic_enum, logging |
 | M2 ✅ | audio::Engine + Decoder concept + play/pause/seek/gapless + gate pactl |
-| M3 | library/playlist/search/lyrics/capa; demuxers (opus/vorbis/nestegg); migración ytm |
-| M4 | Views completas, visualizador pocketfft, F8 YTM en el scheduler, CLI --ytm |
+| M3 ✅ | WebmDecoder (cachés YTM), library taglib + fuzzy Typesense + picker, letras LRCLIB |
+| M4 | Views completas, visualizador pocketfft, capa chafa, F8 YTM, CLI --ytm, migración ytm a net |
 | M5 | MPRIS sdbus-c++, se borra src/ C, renombra binario |
 
 ### Cómo compilar y probar
@@ -406,7 +447,19 @@ intérprete Lua en C++; soporte Windows/SMTC hasta nuevo aviso.
 库（miniaudio、解码器、解封装器、libcurl、chafa、PUC Lua）不做重写
 —— 而是通过 RAII + `extern "C"` 包装。
 
-### 当前状态：M0 ✅ M1 ✅ M2 ✅
+### 当前状态：M0 ✅ M1 ✅ M2 ✅ M3 ✅
+
+**M3a —— YTM 缓存**：`AnyDecoder`（基于 concept 的类型擦除，静态 vtable），
+引擎按链式尝试适配器（miniaudio → webm）；nestegg+opus/vorbis 解封装经
+RAII shim 复用 kew 的 C 实现（`src/sound/webm.h`，单一 C TU）。门槛：
+真实 .webm 播放并断言 pactl sink input。
+
+**M3b —— 模糊曲库**：taglib 递归扫描，采用 Typesense 的 OSA 度量
+（`src/art.cpp`）的模糊搜索，TUI 选择器（'l'：输入即过滤，Enter 播放，
+ESC 关闭）。
+
+**M3c —— LRCLIB 歌词**：`net/`（同步 http + 带重试与标题归一化的
+LRCLIB），歌词视图（'g'），经 offload 的不阻塞获取。
 
 **M0 —— 基础**：协程调度器（epoll + 定时器 + eventfd）、自研 C++ 终端
 层、PTY 冒烟 harness、CMake `-Werror` 构建。
@@ -448,7 +501,7 @@ player/
   library/            # directory tree、metadata (taglib)、fuzzy search、cache
   tui/                # term、cell_buffer、components (CRTP)、views、visualizer
   app/                # settings、bindings、player 状态机、queue
-  net/                # http (curl)、lrclib、translate、ytm（从 src/ytm/ 迁移）
+  net/                # http (curl) + lrclib —— M3 已实现；ytm/translate 在 M4
   script/             # sol2：Lua 配置、键绑定、主题、hooks
   sys/                # MPRIS (sdbus-c++)、通知
 ```
@@ -495,8 +548,8 @@ UI 组件的 CRTP、`std::format`。
 | M0 ✅ | 文档 + CMake + krt + 空白 TUI + PTY harness |
 | M1 ✅ | 类型化 settings（constexpr 描述符）、sol2 Lua 配置、magic_enum 绑定、日志 |
 | M2 ✅ | audio::Engine + Decoder concept + play/pause/seek/gapless + pactl 门槛 |
-| M3 | library/playlist/search/歌词/封面；demuxer（opus/vorbis/nestegg）；ytm 迁移 |
-| M4 | 完整视图、pocketfft 可视化器、调度器上的 F8 YTM、--ytm CLI |
+| M3 ✅ | WebmDecoder（YTM 缓存）、taglib 曲库 + Typesense 模糊搜索 + 选择器、LRCLIB 歌词 |
+| M4 | 完整视图、pocketfft 可视化器、chafa 封面、F8 YTM、--ytm CLI、ytm 迁移到 net |
 | M5 | sdbus-c++ MPRIS、删除旧 src/ C、重命名二进制 |
 
 ### 构建与测试
