@@ -10,6 +10,18 @@
 ![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-blue.svg)
 ![CI](https://github.com/Colombiano/kiutube/actions/workflows/ubuntu.yml/badge.svg)
 
+![Typesense](https://img.shields.io/badge/Typesense-fuzzy%20search-1035FB?logo=typesense&logoColor=white)
+![miniaudio](https://img.shields.io/badge/miniaudio-audio%20engine-222222)
+![PipeWire](https://img.shields.io/badge/PipeWire-audio%20server-262F3B)
+![taglib](https://img.shields.io/badge/taglib-metadata-990000)
+![libcurl](https://img.shields.io/badge/libcurl-HTTP-073551?logo=curl&logoColor=white)
+![sdbus-c++](https://img.shields.io/badge/sdbus--c%2B%2B-D--Bus%20binding-00A4EF)
+![chafa](https://img.shields.io/badge/chafa-TUI%20cover-8A2BE2)
+![sol2](https://img.shields.io/badge/sol2-Lua%20binding-8F005E)
+![pocketfft](https://img.shields.io/badge/pocketfft-FFT-336791)
+![magic_enum](https://img.shields.io/badge/magic__enum-reflection-008080)
+![LRCLIB](https://img.shields.io/badge/LRCLIB-lyrics-FF5733)
+
 **[Português](#português) · [English](#english) · [Español](#español) · [中文](#中文)**
 
 > Fork do [kew](https://github.com/ravachol/kew) (player de música para
