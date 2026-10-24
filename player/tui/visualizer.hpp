@@ -43,6 +43,25 @@ class Visualizer
         static constexpr int kFftSize = 2048;
         static constexpr int kHop = kFftSize / 4; // PT: overlap 75% / 75% overlap / 75% 重叠
 
+        // PT: Eixo de frequência compartilhado com a janela gráfica (GUI).
+        // EN: Frequency axis shared with the GUI window.
+        // ES: Eje de frecuencia compartido con la ventana gráfica.
+        // ZH: 与图形窗口（GUI）共享的频率轴参数。
+        static constexpr double kFreqMin = 20.0;
+        static constexpr double kFreqMax = 16000.0;
+        static constexpr int kBandCount = 29; // PT: bandas 1/3 de oitava / 1/3-octave bands / 1/3 倍频程
+
+        // PT: Aresta k da faixa de 1/3 de oitava: kFreqMin*2^((k-0.5)/3).
+        // EN: Edge k of the 1/3-octave band: kFreqMin*2^((k-0.5)/3).
+        // ES: Aresta k de la banda de 1/3 de octava. / ZH: 第 k 个 1/3 倍频程的边缘。
+        [[nodiscard]] static double band_edge(int k);
+
+        // PT: Roda FFTs pendentes SEM desenhar (a janela gráfica usa mags()).
+        // EN: Runs pending FFTs WITHOUT drawing (the GUI window uses mags()).
+        // ES: Ejecuta FFTs pendientes SIN dibujar (la ventana gráfica).
+        // ZH: 执行待处理的 FFT 但不绘制（图形窗口使用 mags()）。
+        void analyze();
+
         Visualizer();
         ~Visualizer();
         Visualizer(Visualizer &&) = delete;

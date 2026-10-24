@@ -44,6 +44,17 @@ de frequência e colorbar de dB (estilo espectrograma2d.png). Cor
 truecolor 24-bit quando o terminal permite (COLORTERM/TERM), com
 quantização + dither Bayer 4x4 para o cubo 256. Tap SPSC na audio thread;
 pocketfft 2048 com Hann 75% overlap; 'v' cicla; relógio adapta 50↔250ms.
+**Janela gráfica (M4+)**: a tecla `v` também abre um popup Qt 6 +
+QCustomPlot 2.1.1 (vendored em `third_party/`, GPL-3) numa thread dedicada:
+FFT Spectrum (barras 1/3-oct com eixo log + curva de pico rosa, como
+fft.png) e Spectrograma 2D (QCPColorMap com gradiente inferno exato +
+colorbar, como espectrograma2d.png) em resolução plena. A janela drena o
+MESMO tap SPSC do engine — a TUI suspende o viz CLI enquanto ela está
+aberta. Fechar pelo X alinha o modo no TUI via `post_function`.
+`KIUTUBE2_NO_GUI=1` desativa a janela (testes do viz CLI). Sem Qt no
+sistema, compila com stub de mesma API. Nota de licença: Qt/QCustomPlot
+são GPL-3 — o binário kiutube2 com GUI é efetivamente GPL-3; o núcleo C
+permanece GPL-2.
 
 **M0 — fundação**: scheduler de corrotinas (epoll + timers + eventfd),
 terminal layer própria em C++, harness PTY, build CMake `-Werror`.
@@ -195,6 +206,17 @@ colorbar (like espectrograma2d.png). 24-bit truecolor when the terminal
 allows (COLORTERM/TERM), with quantization + Bayer 4x4 dither to the 256
 cube otherwise. Audio-thread SPSC tap; pocketfft 2048, Hann 75% overlap;
 'v' cycles; adaptive clock 50↔250ms.
+**GUI window (M4+)**: the `v` key also opens a Qt 6 + QCustomPlot 2.1.1
+popup (vendored under `third_party/`, GPL-3) on a dedicated thread: FFT
+Spectrum (1/3-oct bars with log axis + pink peak curve, like fft.png) and
+2D spectrogram (QCPColorMap with the exact inferno gradient + colorbar,
+like espectrograma2d.png) at full resolution. The window drains the SAME
+engine SPSC tap — the TUI suspends its CLI viz while it is open. Closing
+via X aligns the mode in the TUI through `post_function`.
+`KIUTUBE2_NO_GUI=1` disables the window (CLI viz tests). Without Qt on
+the system it builds with a same-API stub. License note: Qt/QCustomPlot
+are GPL-3 — the kiutube2 binary with GUI is effectively GPL-3; the C core
+stays GPL-2.
 
 **M0 — foundation**: coroutine scheduler (epoll + timers + eventfd), own C++
 terminal layer, PTY smoke harness, CMake `-Werror` build.
@@ -346,6 +368,15 @@ LUT inferno EXACTA de matplotlib (256 paradas, BSD), labels de frecuencia
 y colorbar de dB (como espectrograma2d.png). Truecolor 24-bit cuando la
 terminal lo permite, con cuantización + dither Bayer 4x4 al cubo 256. Tap
 SPSC en el hilo de audio; pocketfft 2048 con Hann 75% overlap; 'v' cicla.
+**Ventana gráfica (M4+)**: la tecla `v` también abre un popup Qt 6 +
+QCustomPlot 2.1.1 (vendored en `third_party/`, GPL-3) en un hilo
+dedicado: FFT Spectrum y espectrograma 2D (QCPColorMap con gradiente
+inferno exacto + colorbar) a resolución plena. La ventana drena el MISMO
+tap SPSC del engine — la TUI suspende su viz CLI mientras está abierta.
+Cerrar por la X alinea el modo en la TUI vía `post_function`.
+`KIUTUBE2_NO_GUI=1` desactiva la ventana. Sin Qt, compila con stub de
+misma API. Nota de licencia: Qt/QCustomPlot son GPL-3 — el binario
+kiutube2 con GUI es efectivamente GPL-3; el núcleo C sigue GPL-2.
 
 **M0 — fundación**: scheduler de corrutinas (epoll + timers + eventfd),
 terminal layer propia en C++, harness PTY, build CMake `-Werror`.
@@ -494,6 +525,15 @@ LRCLIB），歌词视图（'g'），经 offload 的不阻塞获取。
 （COLORTERM/TERM），否则量化 + Bayer 4x4 抖动到 256 色立方。音频线程
 SPSC tap；pocketfft 2048 点、Hann 窗 75% 重叠；'v' 循环模式；UI 时钟
 自适应 50↔250ms。
+**图形窗口（M4+）**：`v` 键还会在专用线程上打开 Qt 6 + QCustomPlot
+2.1.1（vendored 于 `third_party/`，GPL-3）弹窗：FFT 频谱（1/3 倍频程柱 +
+对数轴 + 粉色峰值曲线，类似 fft.png）与 2D 频谱图（QCPColorMap + 精确
+inferno 渐变 + 色条，类似 espectrograma2d.png），全分辨率渲染。窗口
+排空引擎同一个 SPSC tap —— 打开期间 TUI 暂停 CLI 可视化器。经 X 关闭
+会通过 `post_function` 对齐 TUI 模式。`KIUTUBE2_NO_GUI=1` 禁用窗口
+（CLI viz 测试）。系统无 Qt 时以同 API stub 编译。许可说明：Qt/
+QCustomPlot 为 GPL-3 —— 含 GUI 的 kiutube2 二进制实际为 GPL-3；C 核心
+仍为 GPL-2。
 
 **M0 —— 基础**：协程调度器（epoll + 定时器 + eventfd）、自研 C++ 终端
 层、PTY 冒烟 harness、CMake `-Werror` 构建。

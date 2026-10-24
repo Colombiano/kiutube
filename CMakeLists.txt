@@ -31,6 +31,22 @@ add_compile_options(-Wall -Wextra -Werror)
 
 find_package(Threads REQUIRED)
 
+# PT: Qt 6 opcional: liga a janela gráfica do visualizador (gui/viz_window).
+#     Sem Qt, o kiutube2 compila com um stub que ignora (mesma API).
+# EN: Optional Qt 6: enables the visualizer GUI window (gui/viz_window).
+#     Without Qt, kiutube2 builds with a no-op stub (same API).
+# ES: Qt 6 opcional: habilita la ventana gráfica del visualizador.
+#     Sin Qt, kiutube2 compila con un stub que ignora (misma API).
+# ZH: 可选 Qt 6：启用可视化器图形窗口（gui/viz_window）。无 Qt 时以同名
+#     no-op stub 编译。
+find_package(Qt6 COMPONENTS Widgets PrintSupport QUIET)
+if(Qt6Widgets_FOUND)
+  message(STATUS "Qt6 Widgets encontrado / found: janela grafica habilitada / GUI enabled")
+  set(CMAKE_AUTOMOC ON)
+else()
+  message(STATUS "Qt6 Widgets NAO encontrado / not found: GUI desabilitada (stub) / disabled")
+endif()
+
 # PT: Dependências header-only via FetchContent (pinadas; trocar GIT_TAG por hash
 #     de commit após o primeiro configure — ver docs/CPP20-REWRITE.md).
 # EN: Header-only dependencies via FetchContent (pinned; swap GIT_TAG for a commit
@@ -137,8 +153,22 @@ add_executable(kiutube2
   player/script/lua_state.cpp
   player/tui/term.cpp
   player/tui/visualizer.cpp
+  player/gui/viz_window.cpp
   include/nestegg/nestegg.c
   ${pocketfft_SOURCE_DIR}/pocketfft.c)
+
+# PT: QCustomPlot (vendored, GPL-3) entra apenas com Qt.
+# EN: QCustomPlot (vendored, GPL-3) only joins with Qt.
+# ES: QCustomPlot (vendored, GPL-3) solo entra con Qt.
+# ZH: QCustomPlot（vendored，GPL-3）仅在启用 Qt 时加入。
+if(Qt6Widgets_FOUND)
+  target_sources(kiutube2 PRIVATE third_party/qcustomplot/qcustomplot.cpp)
+  target_include_directories(kiutube2 PRIVATE third_party/qcustomplot)
+  target_compile_definitions(kiutube2 PRIVATE KIUTUBE2_WITH_QT)
+  target_link_libraries(kiutube2 PRIVATE Qt6::Widgets Qt6::PrintSupport)
+  set_source_files_properties(third_party/qcustomplot/qcustomplot.cpp
+    PROPERTIES COMPILE_FLAGS "-w")
+endif()
 # PT: Código legado (webm.h do kew, nestegg): warnings suprimidos por não
 #     serem nossos para polir; a fronteira C fica no shim.
 # EN: Legacy code (kew's webm.h, nestegg): warnings suppressed — not ours to

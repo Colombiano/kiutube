@@ -21,6 +21,7 @@
 #include <chrono>
 #include <coroutine>
 #include <cstdint>
+#include <functional>
 #include <mutex>
 #include <unordered_map>
 #include <vector>
@@ -63,6 +64,15 @@ class Scheduler
         // ZH: 将 handle 入队以便在 loop 线程上恢复，并唤醒 epoll。
         void post(std::coroutine_handle<> h);
 
+        // PT: Enfileira um callback genérico para rodar na thread do loop
+        //     (ex.: janela gráfica fechada pelo usuário). Thread-safe.
+        // EN: Enqueues a generic callback to run on the loop thread (e.g. the
+        //     GUI window closed by the user). Thread-safe.
+        // ES: Encola un callback genérico para correr en el hilo del loop.
+        // ZH: 将通用回调入队以在 loop 线程上执行（如用户关闭图形窗口）。
+        //     线程安全。
+        void post_function(std::function<void()> fn);
+
         // PT: Agenda retomada em deadline (thread-safe; usado por krt::sleep).
         // EN: Schedules a resume at a deadline (thread-safe; used by krt::sleep).
         // ES: Agenda reanudación en deadline (thread-safe; usado por krt::sleep).
@@ -89,6 +99,7 @@ class Scheduler
         int eventfd_ = -1;
         std::mutex mtx_;
         std::vector<std::coroutine_handle<>> posted_; // sob mtx_ / under mtx_ / bajo mtx_ / 受 mtx_ 保护
+        std::vector<std::function<void()>> funcs_;    // PT: callbacks p/ thread do loop / loop-thread callbacks / 等待 loop 线程的回调
         std::vector<std::pair<time_point, std::coroutine_handle<>>> timers_; // min-heap / sob mtx_ / bajo mtx_ / 受 mtx_ 保护
         std::unordered_map<int, std::coroutine_handle<>> fds_; // aguardando EPOLLIN / awaiting EPOLLIN / esperando EPOLLIN / 等待 EPOLLIN
         bool stopping_ = false;

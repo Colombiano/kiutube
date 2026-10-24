@@ -124,6 +124,15 @@ def main():
     argv_bin = shlex.split(binary)
     proc = subprocess.Popen(argv_bin, stdin=slave, stdout=slave, stderr=slave, close_fds=True, env=env)
     os.close(slave)
+    # PT: settle: cobre a janela entre o boot e o raw mode/entrada de teclas;
+    #     teclas enviadas antes disso podem ser engolidas pelo modo canônico.
+    # EN: settle: covers the window between boot and raw mode/key input;
+    #     keys sent earlier can be swallowed by canonical mode.
+    # ES: settle: cubre la ventana entre el boot y el raw mode; teclas
+    #     enviadas antes pueden ser tragadas por el modo canónico.
+    # ZH: settle：覆盖从启动到 raw mode/键盘输入之间的窗口期；过早发送的
+    #     按键可能被规范模式吞掉。
+    time.sleep(0.5)
 
     out = []
     ok = True

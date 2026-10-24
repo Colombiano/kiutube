@@ -12,6 +12,8 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <functional>
+#include <iterator>
 #include <stdexcept>
 #include <utility>
 
@@ -120,6 +122,15 @@ void Scheduler::post(std::coroutine_handle<> h)
         wake();
 }
 
+void Scheduler::post_function(std::function<void()> fn)
+{
+        {
+                std::lock_guard lk(mtx_);
+                funcs_.push_back(std::move(fn));
+        }
+        wake();
+}
+
 void Scheduler::add_timer(time_point at, std::coroutine_handle<> h)
 {
         {
@@ -158,6 +169,7 @@ void Scheduler::run()
         set_completion_hook([](std::coroutine_handle<> h) { Scheduler::instance().post(h); });
 
         std::vector<std::coroutine_handle<>> ready;
+        std::vector<std::function<void()>> pending_funcs;
         epoll_event events[16];
         auto last_beat = std::chrono::steady_clock::now();
 
@@ -182,10 +194,17 @@ void Scheduler::run()
                         }
                         ready.insert(ready.end(), posted_.begin(), posted_.end());
                         posted_.clear();
+                        pending_funcs.insert(pending_funcs.end(), std::make_move_iterator(funcs_.begin()),
+                                             std::make_move_iterator(funcs_.end()));
+                        funcs_.clear();
 
                         if (stopping_ && timers_.empty())
                                 break;
                 }
+
+                for (auto &fn : pending_funcs)
+                        fn();
+                pending_funcs.clear();
 
                 if (!ready.empty())
                 {

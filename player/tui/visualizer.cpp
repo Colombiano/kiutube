@@ -41,18 +41,12 @@ namespace
 constexpr double kSpecDbMin = -100.0, kSpecDbMax = -20.0;     // PT: spectrum (fft.png)
 constexpr double kSpecGramDbMin = -120.0, kSpecGramDbMax = -30.0; // PT: spectrogram (matplotlib psd)
 
-constexpr double kFmin = 20.0;
-constexpr double kFmax = 16000.0;
-
-// PT: bandas de 1/3 de oitava: arestas 20*2^((k-0.5)/3), k=0..28 (29 bandas).
-// EN: 1/3-octave bands: edges 20*2^((k-0.5)/3), k=0..28 (29 bands).
-// ES: bandas de 1/3 de octava. / ZH: 1/3 倍频程：边缘 20*2^((k-0.5)/3)，k=0..28。
-constexpr int kBands = 29;
-
-[[nodiscard]] double band_edge(int k)
-{
-        return kFmin * std::pow(2.0, (static_cast<double>(k) - 0.5) / 3.0);
-}
+// PT: eixo de frequência agora mora na classe (compartilhado com a GUI).
+// EN: the frequency axis now lives on the class (shared with the GUI).
+// ES: el eje de frecuencia ahora vive en la clase (compartido con la GUI).
+// ZH: 频率轴现位于类上（与 GUI 共享）。
+constexpr double kFmin = Visualizer::kFreqMin;
+constexpr double kFmax = Visualizer::kFreqMax;
 
 [[nodiscard]] double gain_to_db(double g)
 {
@@ -92,7 +86,7 @@ constexpr int kBands = 29;
 
 Visualizer::Visualizer()
     : plan_(make_rfft_plan(kFftSize)), samples_(), window_(kFftSize), fft_buf_(kFftSize + 2),
-      mags_(kFftSize / 2 + 1), peaks_(kBands, 0.0)
+      mags_(kFftSize / 2 + 1), peaks_(kBandCount, 0.0)
 {
         if (!plan_)
                 throw std::runtime_error("pocketfft: make_rfft_plan falhou / failed / fallo / 失败");
@@ -119,6 +113,16 @@ void Visualizer::set_mode(Mode m)
 Mode Visualizer::mode() const
 {
         return mode_;
+}
+
+double Visualizer::band_edge(int k)
+{
+        return kFreqMin * std::pow(2.0, (static_cast<double>(k) - 0.5) / 3.0);
+}
+
+void Visualizer::analyze()
+{
+        run_fft();
 }
 
 void Visualizer::feed(std::span<const float> stereo_frames)
@@ -178,13 +182,13 @@ void Visualizer::draw_spectrum(tui::CellBuffer &buf, int row, int col, int rows,
                 buf.put(y, col, std::format("{:>4}", tick), tui::Color{kLabel});
         }
 
-        const int band_cols = std::max(1, bar_cols / kBands);
-        for (int b = 0; b < kBands; ++b)
+        const int band_cols = std::max(1, bar_cols / kBandCount);
+        for (int b = 0; b < kBandCount; ++b)
         {
                 const int x0 = bar_col + b * band_cols;
-                const int x1 = (b == kBands - 1) ? bar_col + bar_cols : x0 + band_cols;
+                const int x1 = (b == kBandCount - 1) ? bar_col + bar_cols : x0 + band_cols;
                 double g = 0.0;
-                for (int bin = freq_to_bin(band_edge(b)); bin <= freq_to_bin(band_edge(b + 1)) && bin <= kFftSize / 2;
+                for (int bin = freq_to_bin(Visualizer::band_edge(b)); bin <= freq_to_bin(Visualizer::band_edge(b + 1)) && bin <= kFftSize / 2;
                      ++bin)
                         g = std::max(g, mags_[bin]);
                 const int h = db_to_rows(gain_to_db(g), kSpecDbMin, kSpecDbMax, rows - 1);

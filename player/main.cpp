@@ -17,6 +17,7 @@
 #include "app/paths.hpp"
 #include "app/settings.hpp"
 #include "audio/engine.hpp"
+#include "gui/viz_window.hpp"
 #include "krt/log.hpp"
 #include "krt/scheduler.hpp"
 #include "library/fuzzy.hpp"
@@ -156,11 +157,27 @@ struct Ui
         Picker picker;
         LyricsPane lyrics;
         viz::Visualizer viz;
+        // PT: Janela gráfica (thread própria). O callback roda NO SCHEDULER
+        //     (post_function) quando o usuário fecha a janela: alinha o modo.
+        // EN: GUI window (own thread). The callback runs ON THE SCHEDULER
+        //     (post_function) when the user closes the window: aligns mode.
+        // ES: Ventana gráfica (hilo propio). El callback corre EN EL
+        //     SCHEDULER cuando el usuario cierra la ventana.
+        // ZH: 图形窗口（独立线程）。用户关闭窗口时回调在调度器上运行
+        //     （post_function）：对齐模式。
+        gui::VizWindow vizwin;
 
-        Ui(audio::Engine &e, app::Settings &s) : buf(24, 100), engine(e), settings(s)
+        Ui(audio::Engine &e, app::Settings &s)
+            : buf(24, 100), engine(e), settings(s),
+              vizwin(e, [this] {
+                      viz.set_mode(viz::Mode::Off);
+                      draw();
+              })
         {
                 buf = tui::CellBuffer(term.rows(), term.cols());
         }
+
+        ~Ui() = default; // PT: vizwin (membro último) é destruída primeiro, fechando a thread GUI. / vizwin (last member) is destroyed first, closing the GUI thread.
 
         void draw()
         {
@@ -168,18 +185,23 @@ struct Ui
                 const auto pos = engine.position();
 
                 // PT: Drena o tap do engine e alimenta o visualizador a cada
-                //     redraw (~4-20x/s) — sincronizado com o que está saindo
-                //     no device.
+                //     redraw — EXCETO quando a janela gráfica está aberta:
+                //     o tap é SPSC (um consumidor), e a janela o drena.
                 // EN: Drains the engine tap and feeds the visualizer on every
-                //     redraw — synced with what is coming out of the device.
-                // ES: Drena el tap del engine y alimenta el visualizador en
-                //     cada redraw.
-                // ZH: 每次重绘时排空引擎 tap 并喂给可视化器 —— 与设备实际输出
-                //     保持同步。
-                float chunk[16384];
-                const std::size_t got = engine.read_viz({chunk, 16384});
-                if (got > 0)
-                        viz.feed({chunk, got * 2});
+                //     redraw — EXCEPT when the GUI window is open: the tap is
+                //     SPSC (one consumer), and the window drains it.
+                // ES: Drena el tap del engine en cada redraw — EXCEPTO cuando
+                //     la ventana gráfica está abierta (tap SPSC).
+                // ZH: 每次重绘时排空引擎 tap —— 图形窗口打开时除外：tap 为
+                //     SPSC（单消费者），由窗口排空。
+                const bool gui_open = vizwin.is_open();
+                if (!gui_open)
+                {
+                        float chunk[16384];
+                        const std::size_t got = engine.read_viz({chunk, 16384});
+                        if (got > 0)
+                                viz.feed({chunk, got * 2});
+                }
 
                 buf.clear();
                 buf.put(1, 2, "kiutube2 - M3+viz / PT / EN / ES / ZH");
@@ -218,7 +240,7 @@ struct Ui
                 //     时强制关闭。
                 if (!settings.visualizer && viz.mode() != viz::Mode::Off)
                         viz.set_mode(viz::Mode::Off);
-                if (viz.mode() != viz::Mode::Off)
+                if (!gui_open && viz.mode() != viz::Mode::Off)
                         viz.draw(buf, 13, 2, 7, buf.cols() - 4);
 
                 if (picker.active && tracks)
@@ -474,24 +496,34 @@ krt::Task<void> app_main(audio::Engine &engine, Ui &ui, std::atomic<bool> &alive
                                 break;
                         }
                         case app::Event::CycleViz:
-                                // PT: cicla Off -> Spectrum -> Spectrogram -> Off.
-                                // EN: cycles Off -> Spectrum -> Spectrogram -> Off.
-                                // ES: cicla Off -> Spectrum -> Spectrogram -> Off.
-                                // ZH: 循环 Off -> Spectrum -> Spectrogram -> Off。
-                                switch (ui.viz.mode())
+                                // PT: cicla Off -> Spectrum -> Spectrogram -> Off e
+                                //     espelha na janela gráfica (settings.visualizer
+                                //     = off mantém tudo desligado).
+                                // EN: cycles Off -> Spectrum -> Spectrogram -> Off
+                                //     and mirrors on the GUI window (settings.
+                                //     visualizer = off keeps everything off).
+                                // ES: cicla Off -> Spectrum -> Spectrogram -> Off y
+                                //     espeja en la ventana gráfica.
+                                // ZH: 循环 Off -> Spectrum -> Spectrogram -> Off，并
+                                //     同步到图形窗口（settings.visualizer=off 全关）。
+                                if (settings.visualizer)
                                 {
-                                case viz::Mode::Off:
-                                        ui.viz.set_mode(viz::Mode::Spectrum);
-                                        break;
-                                case viz::Mode::Spectrum:
-                                        ui.viz.set_mode(viz::Mode::Spectrogram);
-                                        break;
-                                case viz::Mode::Spectrogram:
-                                        ui.viz.set_mode(viz::Mode::Off);
-                                        break;
+                                        switch (ui.viz.mode())
+                                        {
+                                        case viz::Mode::Off:
+                                                ui.viz.set_mode(viz::Mode::Spectrum);
+                                                break;
+                                        case viz::Mode::Spectrum:
+                                                ui.viz.set_mode(viz::Mode::Spectrogram);
+                                                break;
+                                        case viz::Mode::Spectrogram:
+                                                ui.viz.set_mode(viz::Mode::Off);
+                                                break;
+                                        }
+                                        ui.vizwin.set_mode(ui.viz.mode());
+                                        krt::log::info("viz: modo / mode / modo / 模式: {}",
+                                                       static_cast<int>(ui.viz.mode()));
                                 }
-                                krt::log::info("viz: modo / mode / modo / 模式: {}",
-                                               static_cast<int>(ui.viz.mode()));
                                 break;
                         default:
                                 break;
