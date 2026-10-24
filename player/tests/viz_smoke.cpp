@@ -1,22 +1,24 @@
-// PT: Smoke test do Visualizer (M4 adiantado): alimenta um seno de 440Hz +
-//     ruído baixo, roda a FFT e asserta que o bin dominante fica na
-//     frequência esperada (±3%). Também valida a paleta e o desenho num
-//     CellBuffer (células coloridas aparecem).
-// EN: Visualizer smoke test (early M4): feeds a 440Hz sine plus low noise,
-//     runs the FFT and asserts the dominant bin lands at the expected
-//     frequency (±3%). Also validates the palette and drawing into a
-//     CellBuffer (colored cells appear).
-// ES: Smoke test del Visualizer (M4 adelantado): alimenta un seno de 440Hz,
-//     ejecuta la FFT y asegura que el bin dominante cae en la frecuencia
-//     esperada (±3%).
-// ZH: Visualizer 冒烟测试（提前的 M4）：喂入 440Hz 正弦 + 低噪声，执行 FFT
-//     并断言主导 bin 落在预期频率（±3%）。同时验证调色板与 CellBuffer
-//     绘制（出现彩色单元格）。
+// PT: Smoke test do Visualizer hi-fi: alimenta seno 440Hz + ruído baixo,
+//     roda a FFT e asserta o bin dominante (±1.2 bin com a janela Hann);
+//     valida a LUT inferno (extremos/monotonia aproximada), a emissão de
+//     SGR truecolor (COLORTERM=truecolor) e de paleta 256 com dither, e o
+//     desenho em CellBuffer (meio-bloco presente).
+// EN: Hi-fi Visualizer smoke test: feeds a 440Hz sine + low noise, runs the
+//     FFT and asserts the dominant bin (±1.2 bins with the Hann window);
+//     validates the inferno LUT, truecolor SGR emission (COLORTERM=truecolor)
+//     and 256-palette dithered SGR, plus CellBuffer drawing (half-block).
+// ES: Smoke test del Visualizer hi-fi: seno 440Hz, FFT, bin dominante,
+//     LUT inferno, SGR truecolor y paleta 256 con dither, semibloque.
+// ZH: 高保真 Visualizer 冒烟测试：喂入 440Hz 正弦 + 低噪声，执行 FFT 并断言
+//     主导 bin（Hann 窗 ±1.2 bin）；验证 inferno LUT、truecolor SGR 输出
+//     （COLORTERM=truecolor）、带抖动的 256 色 SGR 及半块字符绘制。
 #include "tui/cell_buffer.hpp"
+#include "tui/color.hpp"
 #include "tui/visualizer.hpp"
 
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <vector>
 
 namespace
@@ -33,17 +35,17 @@ void check(bool cond, const char *what)
         }
 }
 
-} // namespace
-
-int main()
+bool segments_have(const std::vector<std::string> &segs, std::string_view needle)
 {
-        viz::Visualizer viz;
-        viz.set_mode(viz::Mode::Spectrum);
+        for (const auto &s : segs)
+                if (s.find(needle) != std::string::npos)
+                        return true;
+        return false;
+}
 
-        // PT: 1,5 janela de seno 440Hz @48k (mono duplicado em stereo).
-        // EN: 1.5 windows of a 440Hz sine @48k (mono duplicated to stereo).
-        // ES: 1,5 ventanas de seno 440Hz @48k. / ZH: 1.5 个窗口的 440Hz 正弦 @48k。
-        constexpr int kFeed = viz::Visualizer::kFftSize + viz::Visualizer::kFftSize / 2;
+void run_fft_once(viz::Visualizer &viz, tui::CellBuffer &buf)
+{
+        constexpr int kFeed = viz::Visualizer::kFftSize + viz::Visualizer::kHop;
         std::vector<float> stereo(static_cast<std::size_t>(kFeed) * 2);
         for (int i = 0; i < kFeed; ++i)
         {
@@ -52,45 +54,82 @@ int main()
                 stereo[static_cast<std::size_t>(i) * 2 + 1] = static_cast<float>(s);
         }
         viz.feed(stereo);
+        viz.draw(buf, 2, 2, 10, 96);
+}
 
-        tui::CellBuffer buf(24, 100);
-        viz.draw(buf, 2, 2, 10, 96); // PT: força a FFT e o desenho / runs FFT + draw
+} // namespace
 
-        // PT: bin dominante deve ser ~440Hz (±3%).
-        // EN: dominant bin should be ~440Hz (±3%).
-        // ES: el bin dominante debe ser ~440Hz (±3%).
-        // ZH: 主导 bin 应约为 440Hz（±3%）。
-        const auto &mags = viz.mags();
-        int peak_bin = 1;
-        for (int b = 2; b < viz::Visualizer::kFftSize / 2; ++b)
-                if (mags[b] > mags[peak_bin])
-                        peak_bin = b;
-        const double peak_hz = static_cast<double>(peak_bin) * viz::Visualizer::kSampleRate /
-                               viz::Visualizer::kFftSize;
-        std::printf("viz_smoke: pico / peak / pico / 峰值: %.1f Hz (bin %d)\n", peak_hz, peak_bin);
-        check(std::abs(peak_hz - 440.0) < 440.0 * 0.03 + 6.0, "pico ~440Hz");
+int main()
+{
+        // PT: LUT inferno: extremos e crescimento do canal vermelho.
+        // EN: inferno LUT: extremes and red-channel growth.
+        // ES: LUT inferno: extremos y crecimiento del rojo. / ZH: inferno LUT：端点与红通道递增。
+        const tui::Rgb dark = tui::inferno(0.0);
+        const tui::Rgb mid = tui::inferno(0.5);
+        const tui::Rgb bright = tui::inferno(1.0);
+        check(dark.r <= 4 && dark.g <= 4, "inferno escuro / dark");
+        check(bright.r >= 250 && bright.g >= 250, "inferno claro / bright");
+        check(mid.r > dark.r && bright.r >= mid.r, "inferno monotono aprox / monotone-ish");
 
-        // PT: paleta: extremos. / EN: palette: extremes. / ZH: 调色板：端点。
-        check(viz::hot_palette(0.0) == 16, "paleta preto / black");
-        check(viz::hot_palette(1.0) == 231, "paleta branco / white");
-        check(viz::hot_palette(0.5) != viz::hot_palette(0.0), "palefa varia");
+        // PT: truecolor detectado via COLORTERM e SGR 24-bit emitido.
+        // EN: truecolor detected via COLORTERM and 24-bit SGR emitted.
+        // ES: truecolor detectado vía COLORTERM y SGR 24-bit emitido.
+        // ZH: 经 COLORTERM 检测 truecolor 并输出 24-bit SGR。
+        setenv("COLORTERM", "truecolor", 1);
+        {
+                viz::Visualizer viz;
+                viz.set_mode(viz::Mode::Spectrum);
+                tui::CellBuffer buf(24, 100);
+                run_fft_once(viz, buf);
+                const auto segs = buf.flush_diff();
+                check(tui::truecolor_enabled(), "truecolor detectado / detected");
+                check(segments_have(segs, "\x1b[38;2;"), "SGR truecolor fg");
+                check(segments_have(segs, "\x1b[48;2;"), "SGR truecolor bg");
+        }
+        unsetenv("COLORTERM");
+        setenv("TERM", "xterm-256color", 1);
+        {
+                viz::Visualizer viz;
+                viz.set_mode(viz::Mode::Spectrum);
+                tui::CellBuffer buf(24, 100);
+                run_fft_once(viz, buf);
+                const auto segs = buf.flush_diff();
+                check(!tui::truecolor_enabled(), "truecolor ausente / absent");
+                check(segments_have(segs, "\x1b[48;5;"), "SGR paleta 256 / palette SGR");
+        }
 
-        // PT: após draw, linhas da área devem conter escapes de cor SGR —
-        //     flush_diff devolve segmentos; procuramos 48;5 (bg 256).
-        // EN: after draw, area lines must contain SGR color escapes —
-        //     flush_diff returns segments; we look for 48;5 (256 bg).
-        // ES: tras draw, las líneas deben contener escapes SGR de color.
-        // ZH: draw 后区域行应包含 SGR 颜色转义 —— 在 flush_diff 的段中查找
-        //     48;5（256 背景色）。
-        const auto segs = buf.flush_diff();
-        bool found_color = false;
-        for (const auto &s : segs)
-                if (s.find("\x1b[48;5;") != std::string::npos)
-                {
-                        found_color = true;
-                        break;
-                }
-        check(found_color, "segmentos com cor / colored segments / 彩色段");
+        // PT: pico do FFT em ~440Hz (±1.2 bin) em ambos os modos de desenho.
+        // EN: FFT peak at ~440Hz (±1.2 bins) in both draw modes.
+        // ES: pico del FFT en ~440Hz (±1.2 bins). / ZH: FFT 峰值在 ~440Hz（±1.2 bin）。
+        const double binw = static_cast<double>(viz::Visualizer::kSampleRate) / viz::Visualizer::kFftSize;
+        for (const auto mode : {viz::Mode::Spectrum, viz::Mode::Spectrogram})
+        {
+                viz::Visualizer viz;
+                viz.set_mode(mode);
+                tui::CellBuffer buf(24, 100);
+                run_fft_once(viz, buf);
+                const auto &mags = viz.mags();
+                int peak_bin = 1;
+                for (int b = 2; b < viz::Visualizer::kFftSize / 2; ++b)
+                        if (mags[b] > mags[peak_bin])
+                                peak_bin = b;
+                const double peak_hz = static_cast<double>(peak_bin) * binw;
+                std::printf("viz_smoke: modo / mode %d pico / peak / 峰值: %.1f Hz\n",
+                            static_cast<int>(mode), peak_hz);
+                check(std::abs(peak_hz - 440.0) <= std::max(1.2 * binw, 440.0 * 0.03),
+                      "pico ~440Hz");
+        }
+
+        // PT: meio-bloco presente no spectrogram.
+        // EN: half-block present in the spectrogram. / ZH: 频谱图含半块字符。
+        {
+                viz::Visualizer viz;
+                viz.set_mode(viz::Mode::Spectrogram);
+                tui::CellBuffer buf(24, 100);
+                run_fft_once(viz, buf);
+                const auto segs = buf.flush_diff();
+                check(segments_have(segs, "\xE2\x96\x80"), "meio-bloco / half-block");
+        }
 
         if (failures > 0)
                 return 1;

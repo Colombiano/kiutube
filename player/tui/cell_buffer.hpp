@@ -1,29 +1,29 @@
-// PT: Buffer de células com COR (256 cores): cada célula tem char UTF-8 +
-//     fg/bg (255 = default). flush_diff reescreve linhas alteradas emitindo
-//     SGR nas transições de cor. Visualizadores (spectrum/spectrogram)
-//     usam bg colorido em espaços para blocos sólidos.
-// EN: Cell buffer with COLOR (256 colors): each cell has a UTF-8 char +
-//     fg/bg (255 = default). flush_diff rewrites changed lines emitting SGR
-//     on color transitions. Visualizers (spectrum/spectrogram) use colored
-//     backgrounds on spaces for solid blocks.
-// ES: Buffer de celdas con COLOR (256 colores): cada celda tiene char UTF-8
-//     + fg/bg (255 = default). flush_diff reescribe líneas cambiadas
-//     emitiendo SGR en las transiciones de color.
-// ZH: 带颜色的单元格缓冲（256 色）：每格为 UTF-8 字符 + fg/bg（255 = 默认）。
-// flush_diff 重写变化的行，在颜色过渡处输出 SGR。可视化器
-//（spectrum/spectrogram）用带背景色的空格渲染纯色块。
+// PT: Buffer de células RGB (24-bit quando o terminal permite, com
+//     quantização+dither pro cubo 256 caso contrário). Cada célula: char
+//     UTF-8 + fg/bg opcionais (Color). flush_diff reescreve linhas
+//     alteradas emitindo SGR só nas transições de cor.
+// EN: RGB cell buffer (24-bit when the terminal allows, with quantization +
+//     dither to the 256 cube otherwise). Each cell: UTF-8 char + optional
+//     fg/bg (Color). flush_diff rewrites changed lines emitting SGR only on
+//     color transitions.
+// ES: Buffer de celdas RGB (24-bit si la terminal lo permite, con
+//     cuantización+dither al cubo 256 si no). flush_diff reescribe líneas
+//     emitiendo SGR solo en las transiciones de color.
+// ZH: RGB 单元格缓冲（终端支持时用 24-bit，否则量化 + 抖动到 256 色立方）。
+//     每格：UTF-8 字符 + 可选 fg/bg（Color）。flush_diff 重写变化的行，
+//     仅在颜色过渡处输出 SGR。
 #pragma once
 
+#include "tui/color.hpp"
+
 #include <algorithm>
-#include <cstdint>
+#include <format>
 #include <string>
 #include <string_view>
 #include <vector>
 
 namespace tui
 {
-
-inline constexpr std::uint8_t kColorDefault = 255; // PT: cor herdada do terminal / EN: inherited terminal color / ZH: 继承终端颜色
 
 class CellBuffer
 {
@@ -48,23 +48,23 @@ class CellBuffer
                 back_.assign(static_cast<std::size_t>(rows_), std::vector<Cell>(static_cast<std::size_t>(cols_)));
         }
 
-        // PT: Escreve texto com as cores default (herdadas).
-        // EN: Writes text with default (inherited) colors.
-        // ES: Escribe texto con los colores default (heredados).
-        // ZH: 以默认（继承）颜色写入文本。
+        // PT: Escreve texto com cores herdadas (default do terminal).
+        // EN: Writes text with inherited (terminal default) colors.
+        // ES: Escribe texto con colores heredados. / ZH: 以继承色写入文本。
         void put(int row, int col, std::string_view text)
         {
-                put(row, col, text, kColorDefault, kColorDefault);
+                put(row, col, text, Color{}, Color{});
         }
 
-        // PT: Escreve texto com cores; clip por bytes (UTF-8 pode cortar na
-        //     borda — wcwidth fica para o layout M4).
-        // EN: Writes text with colors; byte clipping (UTF-8 may split at the
-        //     edge — wcwidth lands with the M4 layout).
-        // ES: Escribe texto con colores; clip por bytes.
-        // ZH: 带颜色写入文本；按字节裁剪（UTF-8 可能在边界截断 —— wcwidth
-        //     随 M4 布局加入）。
-        void put(int row, int col, std::string_view text, std::uint8_t fg, std::uint8_t bg)
+        // PT: Escreve texto com cor de frente; clip por células UTF-8.
+        // EN: Writes text with a foreground color; per-cell UTF-8 clipping.
+        // ES: Escribe texto con color de frente. / ZH: 以前景色写入文本。
+        void put(int row, int col, std::string_view text, Color fg)
+        {
+                put(row, col, text, fg, Color{});
+        }
+
+        void put(int row, int col, std::string_view text, Color fg, Color bg)
         {
                 if (row < 0 || row >= rows_ || col < 0 || col >= cols_ || text.empty())
                         return;
@@ -84,29 +84,29 @@ class CellBuffer
                 }
         }
 
-        // PT: Uma célula colorida (ex.: espaço com bg para o spectrogram).
-        // EN: One colored cell (e.g. space with bg for the spectrogram).
-        // ES: Una celda coloreada (p. ej. espacio con bg para el spectrogram).
-        // ZH: 单个彩色单元格（如 spectrogram 中带背景色的空格）。
-        void put_cell(int row, int col, char ch, std::uint8_t fg, std::uint8_t bg)
+        // PT: Uma célula colorida de char único (ASCII) ou sequência UTF-8
+        //     curta (ex.: meio-bloco ▀, espaço com bg).
+        // EN: One colored cell: single char (ASCII) or short UTF-8 sequence
+        //     (e.g. half-block ▀, bg space).
+        // ES: Una celda coloreada de char único o secuencia UTF-8 corta.
+        // ZH: 单个彩色单元格：单字符（ASCII）或短 UTF-8 序列（如半块 ▀、
+        //     带背景色的空格）。
+        void put_cell(int row, int col, std::string_view ch, Color fg, Color bg)
         {
-                if (row < 0 || row >= rows_ || col < 0 || col >= cols_)
+                if (row < 0 || row >= rows_ || col < 0 || col >= cols_ || ch.empty())
                         return;
                 Cell &c = back_[static_cast<std::size_t>(row)][static_cast<std::size_t>(col)];
-                c.len = 1;
-                c.ch[0] = ch;
+                c.len = static_cast<std::uint8_t>(std::min<std::size_t>(ch.size(), sizeof(c.ch)));
+                for (std::uint8_t k = 0; k < c.len; ++k)
+                        c.ch[k] = ch[k];
                 c.fg = fg;
                 c.bg = bg;
         }
 
-        // PT: Troca front/back e devolve segmentos (escape de posição + linha
-        //     com SGR) prontos para um único writev.
-        // EN: Swaps front/back and returns segments (position escape + line
-        //     with SGR) ready for a single writev.
-        // ES: Intercambia front/back y devuelve segmentos (escape de posición
-        //     + línea con SGR) listos para un único writev.
-        // ZH: 交换 front/back 并返回段（定位转义 + 带 SGR 的行），可直接
-        //     用于单次 writev。
+        // PT: Troca front/back; devolve segmentos (posição + linha com SGR).
+        // EN: Swaps front/back; returns segments (position + SGR line).
+        // ES: Intercambia front/back; devuelve segmentos.
+        // ZH: 交换 front/back；返回段（定位 + 带 SGR 的行）。
         [[nodiscard]] std::vector<std::string> flush_diff()
         {
                 std::vector<std::string> segments;
@@ -115,7 +115,7 @@ class CellBuffer
                         if (front_[r] == back_[r])
                                 continue;
                         segments.push_back("\x1b[" + std::to_string(r + 1) + ";1H\x1b[2K");
-                        segments.push_back(render_line(back_[r]));
+                        segments.push_back(render_line(back_[r], r));
                         front_[r] = back_[r];
                 }
                 return segments;
@@ -126,12 +126,16 @@ class CellBuffer
         {
                 char ch[8] = {' '};
                 std::uint8_t len = 1;
-                std::uint8_t fg = kColorDefault;
-                std::uint8_t bg = kColorDefault;
+                Color fg{};
+                Color bg{};
 
                 bool operator==(const Cell &o) const
                 {
-                        return len == o.len && fg == o.fg && bg == o.bg &&
+                        return len == o.len && fg.set == o.fg.set && bg.set == o.bg.set &&
+                               (!fg.set || (fg.rgb.r == o.fg.rgb.r && fg.rgb.g == o.fg.rgb.g &&
+                                            fg.rgb.b == o.fg.rgb.b)) &&
+                               (!bg.set || (bg.rgb.r == o.bg.rgb.r && bg.rgb.g == o.bg.rgb.g &&
+                                            bg.rgb.b == o.bg.rgb.b)) &&
                                std::equal(ch, ch + len, o.ch);
                 }
         };
@@ -150,29 +154,52 @@ class CellBuffer
                 return 1;
         }
 
-        // PT: Renderiza uma linha inserindo SGR nas transições de cor.
-        // EN: Renders a line inserting SGR on color transitions.
-        // ES: Renderiza una línea insertando SGR en las transiciones de color.
-        // ZH: 渲染一行，在颜色过渡处插入 SGR。
-        [[nodiscard]] static std::string render_line(const std::vector<Cell> &line)
+        // PT: SGR de uma cor de frente/fundo: truecolor direto ou
+        //     quantização com dither Bayer pela posição da célula.
+        // EN: SGR for one fg/bg: direct truecolor or Bayer-dithered
+        //     quantization by cell position.
+        // ES: SGR de fg/bg: truecolor directo o cuantización con dither.
+        // ZH: 单个 fg/bg 的 SGR：直接 truecolor，或按单元格位置做 Bayer
+        //     抖动量化。
+        [[nodiscard]] static std::string sgr(Color c, bool fg, int x, int y)
+        {
+                if (!c.set)
+                        return {};
+                if (truecolor_enabled())
+                        return std::format("\x1b[{};2;{};{};{}m", fg ? 38 : 48, c.rgb.r, c.rgb.g, c.rgb.b);
+                return std::format("\x1b[{};5;{}m", fg ? 38 : 48, static_cast<int>(dither256(c.rgb, x, y)));
+        }
+
+        // PT: Renderiza a linha com SGR só quando o estado de cor muda; o
+        //     índice da linha entra no dither Bayer (y).
+        // EN: Renders the line with SGR only on color-state changes; the row
+        //     index feeds the Bayer dither (y).
+        // ES: Renderiza la línea con SGR solo al cambiar el estado de color;
+        //     el índice de línea entra en el dither Bayer (y).
+        // ZH: 渲染行：仅在颜色状态变化时输出 SGR；行索引参与 Bayer 抖动（y）。
+        [[nodiscard]] static std::string render_line(const std::vector<Cell> &line, int row)
         {
                 std::string out;
-                std::uint8_t cur_fg = kColorDefault, cur_bg = kColorDefault;
-                for (const Cell &c : line)
+                Color cur_fg{}, cur_bg{};
+                for (std::size_t x = 0; x < line.size(); ++x)
                 {
-                        if (c.fg != cur_fg || c.bg != cur_bg)
+                        const Cell &c = line[x];
+                        if (c.fg.set != cur_fg.set || c.bg.set != cur_bg.set ||
+                            (c.fg.set && (c.fg.rgb.r != cur_fg.rgb.r || c.fg.rgb.g != cur_fg.rgb.g ||
+                                          c.fg.rgb.b != cur_fg.rgb.b)) ||
+                            (c.bg.set && (c.bg.rgb.r != cur_bg.rgb.r || c.bg.rgb.g != cur_bg.rgb.g ||
+                                          c.bg.rgb.b != cur_bg.rgb.b)))
                         {
-                                out += "\x1b[0m";
-                                if (c.fg != kColorDefault)
-                                        out += "\x1b[38;5;" + std::to_string(c.fg) + "m";
-                                if (c.bg != kColorDefault)
-                                        out += "\x1b[48;5;" + std::to_string(c.bg) + "m";
+                                if (cur_fg.set || cur_bg.set)
+                                        out += "\x1b[0m";
+                                out += sgr(c.fg, true, static_cast<int>(x), row);
+                                out += sgr(c.bg, false, static_cast<int>(x), row);
                                 cur_fg = c.fg;
                                 cur_bg = c.bg;
                         }
                         out.append(c.ch, c.len);
                 }
-                if (cur_fg != kColorDefault || cur_bg != kColorDefault)
+                if (cur_fg.set || cur_bg.set)
                         out += "\x1b[0m";
                 return out;
         }

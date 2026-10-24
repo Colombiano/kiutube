@@ -78,13 +78,22 @@ def main():
     while i < len(argv):
         a = argv[i]
         if a == "--expect":
-            # PT: decodifica escapes (\x1b[...) para comparar com o stream.
-            # EN: decodes escapes (\x1b[...) for stream comparison.
+            # PT: decodifica escapes (\x1b[.., \xE2\x96\x80) para comparar
+            #     com o stream: latin-1 -> unicode_escape -> latin-1 -> utf-8.
+            # EN: decodes escapes for stream comparison: latin-1 ->
+            #     unicode_escape -> latin-1 -> utf-8.
             # ES: decodifica escapes para comparar con el stream.
-            # ZH: 解码转义（\x1b[...）以便与输出流比较。
-            steps.append(("expect", argv[i + 1].encode("utf-8").decode("unicode_escape"))); i += 2
+            # ZH: 解码转义以比较输出流：latin-1 -> unicode_escape -> latin-1
+            #     -> utf-8。
+            steps.append(("expect", argv[i + 1].encode("latin-1").decode("unicode_escape")
+                          .encode("latin-1").decode("utf-8", "replace"))); i += 2
         elif a == "--send":
-            steps.append(("send", argv[i + 1])); i += 2
+            # PT: mesma cadeia de decodificação do --expect (escapes -> bytes).
+            # EN: same decode chain as --expect (escapes -> bytes).
+            # ES: misma cadena de decodificación que --expect.
+            # ZH: 与 --expect 相同的解码链（转义 -> 字节）。
+            steps.append(("send", argv[i + 1].encode("latin-1").decode("unicode_escape")
+                          .encode("latin-1"))); i += 2
         elif a == "--sh":
             steps.append(("sh", argv[i + 1])); i += 2
         elif a == "--expect-exit":
@@ -133,7 +142,7 @@ def main():
                 print(f"tui_smoke: FAIL esperando / waiting / esperando / 等待: {value!r}", file=sys.stderr)
                 break
         elif kind == "send":
-            os.write(master, value.encode("utf-8").decode("unicode_escape").encode("latin-1"))
+            os.write(master, value)  # PT: value já chega como bytes decodificados. EN: already bytes. ZH: 已是解码后的字节
             time.sleep(0.3)
         else:  # sh
             # PT: Comando externo (ex.: pactl) com o app ainda rodando. / EN: External command (e.g. pactl) with the app still running.

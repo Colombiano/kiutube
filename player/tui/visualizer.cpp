@@ -1,21 +1,28 @@
-// PT: Implementação dos visualizadores. FFT: pocketfft (plano rfft C,
-//     buffer n+2 doubles interleaved re,im). Mapeamentos log-freq como nos
-//     referenciais: spectrum x=log(20Hz..16kHz), y=dB[-70..0]; spectrogram
-//     y=log-freq (grave embaixo), cor=magnitude na rampa hot.
-// EN: Visualizer implementation. FFT: pocketfft (C rfft plan, n+2 interleaved
-//     re,im doubles). Log-freq mappings as in the references: spectrum
-//     x=log(20Hz..16kHz), y=dB[-70..0]; spectrogram y=log-freq (bass at the
-//     bottom), color=magnitude on the hot ramp.
-// ES: Implementación de los visualizadores. FFT: pocketfft (plan rfft C).
-// ZH: 可视化器实现。FFT：pocketfft（C rfft plan，n+2 doubles 交错 re,im）。
-//     对数频率映射参照示例图：spectrum x=log(20Hz..16kHz)，y=dB[-70..0]；
-//     spectrogram y=对数频率（低频在底部），颜色=幅度映射到 hot 色带。
+// PT: Implementação hi-fi dos visualizadores. Spectrum: bandas 1/3-octava
+//     (20Hz-16kHz), preenchimento verde + contorno de pico rosa que decai,
+//     ticks de dB no eixo Y. Spectrogram: meio-bloco '▀' (fg=pixel de cima,
+//     bg=de baixo), rampa inferno exata, eixo log-freq com labels e colorbar
+//     de dB [-120..-30]. FFT pocketfft 2048, Hann, hop 512 (75%).
+// EN: Hi-fi visualizer implementation. Spectrum: 1/3-octave bands (20Hz-
+//     16kHz), green fill + decaying pink peak outline, dB y-ticks.
+//     Spectrogram: half-block '▀' (fg=upper pixel, bg=lower), exact inferno
+//     ramp, log-freq axis with labels and dB colorbar [-120..-30]. pocketfft
+//     2048, Hann, hop 512 (75%).
+// ES: Implementación hi-fi. Spectrum: bandas 1/3-octava, relleno verde +
+//     contorno de pico rosa. Spectrogram: semibloque '▀', rampa inferno
+//     exacta, eje log-freq con labels y colorbar de dB.
+// ZH: 高保真实现。Spectrum：1/3 倍频程（20Hz-16kHz），绿色填充 + 衰减粉色
+//     峰值轮廓，dB Y 轴刻度。Spectrogram：半块 '▀'（fg=上像素、bg=下像素）、
+//     精确 inferno 色带、带标签的对数频率轴与 dB 色条 [-120..-30]。
+//     pocketfft 2048 点、Hann 窗、hop 512（75% 重叠）。
 #include "tui/visualizer.hpp"
 
 #include "krt/log.hpp"
+#include "tui/color.hpp"
 
 #include <algorithm>
 #include <cmath>
+#include <format>
 #include <stdexcept>
 
 extern "C"
@@ -29,62 +36,66 @@ namespace viz
 namespace
 {
 
-// PT: Faixa de dB exibida (mapping 0..1). / EN: Displayed dB range. / ZH: 显示的 dB 范围。
-constexpr double kDbMin = -70.0;
-constexpr double kDbMax = 0.0;
+// PT: dB por modo (faixas dos referenciais). / EN: dB ranges per mode.
+// ES: dB por modo. / ZH: 各模式的 dB 范围。
+constexpr double kSpecDbMin = -100.0, kSpecDbMax = -20.0;     // PT: spectrum (fft.png)
+constexpr double kSpecGramDbMin = -120.0, kSpecGramDbMax = -30.0; // PT: spectrogram (matplotlib psd)
 
-// PT: frequências do eixo log. / EN: log axis frequencies. / ZH: 对数轴频率范围。
 constexpr double kFmin = 20.0;
 constexpr double kFmax = 16000.0;
+
+// PT: bandas de 1/3 de oitava: arestas 20*2^((k-0.5)/3), k=0..28 (29 bandas).
+// EN: 1/3-octave bands: edges 20*2^((k-0.5)/3), k=0..28 (29 bands).
+// ES: bandas de 1/3 de octava. / ZH: 1/3 倍频程：边缘 20*2^((k-0.5)/3)，k=0..28。
+constexpr int kBands = 29;
+
+[[nodiscard]] double band_edge(int k)
+{
+        return kFmin * std::pow(2.0, (static_cast<double>(k) - 0.5) / 3.0);
+}
 
 [[nodiscard]] double gain_to_db(double g)
 {
         return 20.0 * std::log10(g + 1e-9);
 }
 
-[[nodiscard]] int db_to_height(double db, int rows)
+[[nodiscard]] double x_to_freq(double frac)
 {
-        const double t = std::clamp((db - kDbMin) / (kDbMax - kDbMin), 0.0, 1.0);
-        return static_cast<int>(t * rows);
+        return kFmin * std::pow(kFmax / kFmin, std::clamp(frac, 0.0, 1.0));
 }
 
-// PT: coluna x (0..cols-1) -> frequência (log). / EN: column x -> frequency (log).
-// ES: columna x -> frecuencia (log). / ZH: 列 x -> 频率（对数）。
-[[nodiscard]] double x_to_freq(double x01)
-{
-        return kFmin * std::pow(kFmax / kFmin, x01);
-}
-
-// PT: bin da FFT para uma frequência. / EN: FFT bin for a frequency.
-// ES: bin de la FFT para una frecuencia. / ZH: 频率对应的 FFT bin。
 [[nodiscard]] int freq_to_bin(double f)
 {
         return std::clamp(static_cast<int>(f * Visualizer::kFftSize / Visualizer::kSampleRate), 1,
                           Visualizer::kFftSize / 2);
 }
 
-} // namespace
-
-std::uint8_t hot_palette(double gain01) noexcept
+[[nodiscard]] int db_to_rows(double db, double db_min, double db_max, int rows)
 {
-        static constexpr std::uint8_t kRamp[] = {
-            16,  16,  16,  232, 233, 234, 53,  53,  54,  55,  90,  90,  96,  96,  124, 124,
-            160, 160, 166, 166, 202, 202, 208, 208, 214, 214, 220, 220, 226, 226, 230, 231,
-        };
-        const auto idx = static_cast<std::size_t>(
-            std::clamp(gain01, 0.0, 1.0) * (sizeof(kRamp) / sizeof(kRamp[0]) - 1));
-        return kRamp[idx];
+        const double t = std::clamp((db - db_min) / (db_max - db_min), 0.0, 1.0);
+        return static_cast<int>(t * rows);
 }
+
+// PT: cor do preenchimento por altura (verde->amarelo->vermelho).
+// EN: fill color by height (green->yellow->red).
+// ES: color de relleno por altura. / ZH: 按高度的填充色（绿->黄->红）。
+[[nodiscard]] tui::Rgb height_color(double t)
+{
+        if (t > 0.85)
+                return {230, 40, 40};
+        if (t > 0.6)
+                return {240, 200, 40};
+        return {40, 200, 70};
+}
+
+} // namespace
 
 Visualizer::Visualizer()
     : plan_(make_rfft_plan(kFftSize)), samples_(), window_(kFftSize), fft_buf_(kFftSize + 2),
-      mags_(kFftSize / 2 + 1), peaks_(256, 0.0)
+      mags_(kFftSize / 2 + 1), peaks_(kBands, 0.0)
 {
         if (!plan_)
                 throw std::runtime_error("pocketfft: make_rfft_plan falhou / failed / fallo / 失败");
-        // PT: janela Hann normalizada (coerente ganho 0.5 soma).
-        // EN: Hann window (coherent 0.5 sum gain).
-        // ES: ventana Hann. / ZH: Hann 窗。
         for (int i = 0; i < kFftSize; ++i)
                 window_[i] = 0.5 * (1.0 - std::cos(2.0 * M_PI * i / (kFftSize - 1)));
 }
@@ -117,10 +128,7 @@ void Visualizer::feed(std::span<const float> stereo_frames)
         for (std::size_t i = 0; i < n; ++i)
                 samples_.push_back(
                     (static_cast<double>(stereo_frames[i * 2]) + stereo_frames[i * 2 + 1]) * 0.5);
-        // PT: mantém no máximo 1,5 janela (a FFT consome kFftSize).
-        // EN: keeps at most 1.5 windows (the FFT consumes kFftSize).
-        // ES: mantiene como máximo 1.5 ventanas. / ZH: 最多保留 1.5 个窗口。
-        const std::size_t keep = kFftSize + kFftSize / 2;
+        const std::size_t keep = kFftSize + kHop;
         if (samples_.size() > keep)
                 samples_.erase(samples_.begin(), samples_.begin() + (samples_.size() - keep));
 }
@@ -132,20 +140,14 @@ void Visualizer::run_fft()
         for (int i = 0; i < kFftSize; ++i)
                 fft_buf_[i] = samples_[i] * window_[i];
         rfft_forward(plan_, fft_buf_.data(), 1.0);
-        // PT: saída interleaved: c[2k]=re(k), c[2k+1]=im(k), k=0..n/2 (n+2 doubles).
-        // EN: interleaved output: c[2k]=re(k), c[2k+1]=im(k), k=0..n/2.
-        // ES: salida interleaved. / ZH: 交错输出：c[2k]=re(k)，c[2k+1]=im(k)。
-        const double norm = 2.0 / kFftSize; // PT: compensa metade da energia / EN: coherent gain / ZH: 相干增益补偿
+        const double norm = 2.0 / kFftSize;
         for (int k = 0; k <= kFftSize / 2; ++k)
         {
                 const double re = fft_buf_[2 * k];
                 const double im = fft_buf_[2 * k + 1];
                 mags_[k] = std::sqrt(re * re + im * im) * norm;
         }
-        // PT: consome metade da janela (overlap 50%) para o próximo quadro.
-        // EN: consumes half the window (50% overlap) for the next frame.
-        // ES: consume media ventana (overlap 50%). / ZH: 消费半个窗口（50% 重叠）。
-        samples_.erase(samples_.begin(), samples_.begin() + kFftSize / 2);
+        samples_.erase(samples_.begin(), samples_.begin() + kHop);
 }
 
 void Visualizer::draw(tui::CellBuffer &buf, int row, int col, int rows, int cols)
@@ -161,78 +163,128 @@ void Visualizer::draw(tui::CellBuffer &buf, int row, int col, int rows, int cols
 
 void Visualizer::draw_spectrum(tui::CellBuffer &buf, int row, int col, int rows, int cols)
 {
-        if (static_cast<int>(peaks_.size()) < cols)
-                peaks_.resize(cols, 0.0);
+        const int label_w = 5;
+        const int bar_col = col + label_w;
+        const int bar_cols = cols - label_w;
+        const tui::Rgb kLabel{150, 150, 150};
+        const tui::Rgb kFloor{90, 90, 90};
+        const tui::Rgb kPeak{255, 110, 150};
 
-        for (int x = 0; x < cols; ++x)
+        // PT: ticks de dB no eixo Y (fft.png: -20 a -100).
+        // EN: dB ticks on the Y axis (fft.png: -20 to -100).
+        for (int tick : {-20, -40, -60, -80, -100})
         {
-                const double f0 = x_to_freq(static_cast<double>(x) / cols);
-                const double f1 = x_to_freq(static_cast<double>(x + 1) / cols);
-                // PT: banda: maior magnitude entre os bins do intervalo log.
-                // EN: band: max magnitude across the log interval's bins.
-                // ES: banda: máxima magnitud entre los bins del intervalo.
-                // ZH: 频段：对数区间内各 bin 的最大幅度。
+                const int y = row + rows - 1 - db_to_rows(tick, kSpecDbMin, kSpecDbMax, rows - 1);
+                buf.put(y, col, std::format("{:>4}", tick), tui::Color{kLabel});
+        }
+
+        const int band_cols = std::max(1, bar_cols / kBands);
+        for (int b = 0; b < kBands; ++b)
+        {
+                const int x0 = bar_col + b * band_cols;
+                const int x1 = (b == kBands - 1) ? bar_col + bar_cols : x0 + band_cols;
                 double g = 0.0;
-                for (int b = freq_to_bin(f0); b <= freq_to_bin(f1) && b <= kFftSize / 2; ++b)
-                        g = std::max(g, mags_[b]);
-                const int h = db_to_height(gain_to_db(g), rows);
+                for (int bin = freq_to_bin(band_edge(b)); bin <= freq_to_bin(band_edge(b + 1)) && bin <= kFftSize / 2;
+                     ++bin)
+                        g = std::max(g, mags_[bin]);
+                const int h = db_to_rows(gain_to_db(g), kSpecDbMin, kSpecDbMax, rows - 1);
 
-                // PT: peak-hold com decaimento lento (fica verde no referencial,
-                //     cap rosa). / EN: slow-decay peak-hold (green fill, pink cap).
-                peaks_[x] = std::max(peaks_[x] - 0.15, static_cast<double>(h));
-                if (h >= peaks_[x])
-                        peaks_[x] = h;
-                const int peak_y = static_cast<int>(peaks_[x]);
+                // PT: peak-hold por banda (altura em linhas), decaimento lento.
+                // EN: per-band peak-hold (height in rows), slow decay.
+                // ES: peak-hold por banda (altura en filas), decaimiento lento.
+                // ZH: 每带峰值保持（以行为单位的高度），缓慢衰减。
+                peaks_[b] = std::max(peaks_[b] - 0.25, static_cast<double>(h));
+                const int peak_h = static_cast<int>(peaks_[b]);
 
-                for (int y = 0; y < rows; ++y)
+                for (int x = x0; x < x1 && x < col + cols; ++x)
                 {
-                        const int from_bottom = rows - y; // PT: y de cima para baixo / top-down y
-                        if (from_bottom <= h)
+                        for (int y = 0; y < rows - 1; ++y)
                         {
-                                const double t = static_cast<double>(from_bottom) / rows;
-                                const std::uint8_t color = t > 0.85 ? 196 : (t > 0.6 ? 220 : 34);
-                                buf.put_cell(row + y, col + x, ' ', tui::kColorDefault, color);
+                                const int from_bottom = rows - 1 - y;
+                                if (from_bottom <= h)
+                                        buf.put_cell(row + y, x, " ", tui::Color{},
+                                                     tui::Color{height_color(static_cast<double>(from_bottom) /
+                                                                             (rows - 1))});
+                                else if (from_bottom == peak_h && peak_h > h)
+                                        buf.put_cell(row + y, x, "^", tui::Color{kPeak}, tui::Color{});
                         }
-                        else if (from_bottom == peak_y + 1 && peak_y > h)
-                                buf.put_cell(row + y, col + x, '^', 211, tui::kColorDefault);
-                        else if (from_bottom == 1)
-                                buf.put_cell(row + y, col + x, '_', 240, tui::kColorDefault);
+                        buf.put_cell(row + rows - 1, x, "_", tui::Color{kFloor}, tui::Color{});
                 }
         }
 }
 
 void Visualizer::draw_spectrogram(tui::CellBuffer &buf, int row, int col, int rows, int cols)
 {
-        // PT: nova coluna a partir da FFT atual (uma por draw; ~20 col/s).
-        // EN: new column from the current FFT (one per draw; ~20 cols/s).
-        // ES: nueva columna desde la FFT actual. / ZH: 由当前 FFT 生成新列（每次
-        //     draw 一列；约 20 列/秒）。
-        std::vector<std::uint8_t> column(static_cast<std::size_t>(rows));
-        for (int y = 0; y < rows; ++y)
+        const int label_w = 5;
+        const int cb_w = 8; // PT: colorbar + labels / colorbar + labels / 色条 + 标签
+        const int plot_cols = cols - label_w - cb_w;
+        if (plot_cols <= 0)
+                return;
+
+        // PT: nova coluna de pixels (2*rows por coluna) da FFT atual.
+        // EN: new pixel column (2*rows per column) from the current FFT.
+        // ES: nueva columna de píxeles desde la FFT actual.
+        // ZH: 由当前 FFT 生成新像素列（每列 2*rows 个像素）。
+        std::vector<tui::Rgb> column(static_cast<std::size_t>(rows) * 2);
+        for (int py = 0; py < rows * 2; ++py)
         {
-                // PT: y=0 (topo) = agudo; y=rows-1 (base) = grave (log).
-                // EN: y=0 (top) = treble; y=rows-1 (bottom) = bass (log).
-                // ES: y=0 (arriba) = agudo; y=rows-1 (abajo) = grave (log).
-                // ZH: y=0（顶部）= 高频；y=rows-1（底部）= 低频（对数）。
-                const double frac = 1.0 - static_cast<double>(y) / rows; // 0=base 1=topo
-                const double f = x_to_freq(std::clamp(frac, 0.0, 1.0));
-                const int b = freq_to_bin(f);
-                const double g = mags_[b];
-                const double t = std::clamp((gain_to_db(g) - kDbMin) / (kDbMax - kDbMin), 0.0, 1.0);
-                column[static_cast<std::size_t>(y)] = hot_palette(t);
+                const double frac = static_cast<double>(py) / (rows * 2); // 0=base / bottom
+                const int b = freq_to_bin(x_to_freq(frac));
+                const double t = std::clamp(
+                    (gain_to_db(mags_[b]) - kSpecGramDbMin) / (kSpecGramDbMax - kSpecGramDbMin), 0.0, 1.0);
+                column[static_cast<std::size_t>(py)] = tui::inferno(t);
         }
         hist_.push_back(std::move(column));
-        while (static_cast<int>(hist_.size()) > cols)
+        while (static_cast<int>(hist_.size()) > plot_cols)
                 hist_.pop_front();
 
+        const tui::Rgb kLabel{150, 150, 150};
+        // PT: labels de frequência à esquerda (como no matplotlib).
+        // EN: frequency labels on the left (as in matplotlib).
+        // ES: labels de frecuencia a la izquierda. / ZH: 左侧频率标签。
+        for (const auto &[label, f] : {std::pair{"10k", 10000.0}, {"1k", 1000.0}, {"100", 100.0}})
+        {
+                const int py = static_cast<int>(std::log(f / kFmin) / std::log(kFmax / kFmin) * rows * 2);
+                const int y = row + rows - 1 - (py / 2);
+                buf.put(y, col, label, tui::Color{kLabel});
+        }
+
+        // PT: pinta o histórico: cada célula é um meio-bloco (fg=pixel de
+        //     cima=agudo, bg=pixel de baixo=grave) — resolução vertical ×2.
+        // EN: paints the history: each cell is a half-block (fg=upper=treble,
+        //     bg=lower=bass) — 2x vertical resolution.
+        // ES: pinta el histórico: cada celda es un semibloque (fg=agudo,
+        //     bg=grave) — resolución vertical ×2.
+        // ZH: 绘制历史：每格为半块（fg=上=高频，bg=下=低频）——垂直分辨率 ×2。
         for (std::size_t x = 0; x < hist_.size(); ++x)
         {
-                const int cx = col + static_cast<int>(x) - static_cast<int>(hist_.size()) + cols;
-                if (cx < col)
-                        continue; // PT: nunca pintar fora da área / never paint outside the area
+                const int cx = col + label_w + static_cast<int>(x);
+                if (cx >= col + label_w + plot_cols)
+                        break;
                 for (int y = 0; y < rows; ++y)
-                        buf.put_cell(row + y, cx, ' ', tui::kColorDefault,
-                                     hist_[x][static_cast<std::size_t>(y)]);
+                {
+                        const auto &col_px = hist_[x];
+                        const tui::Rgb upper = col_px[static_cast<std::size_t>(y) * 2 + 1];
+                        const tui::Rgb lower = col_px[static_cast<std::size_t>(y) * 2];
+                        buf.put_cell(row + y, cx, "\xE2\x96\x80" /* ▀ U+2580 */, tui::Color{upper},
+                                     tui::Color{lower});
+                }
+        }
+
+        // PT: colorbar à direita: rampa inferno [-30 topo .. -120 base] + ticks.
+        // EN: colorbar on the right: inferno ramp [-30 top .. -120 bottom] + ticks.
+        // ES: colorbar a la derecha: rampa inferno con ticks. / ZH: 右侧色条：
+        //     inferno 渐变 [-30 顶部 .. -120 底部] + 刻度。
+        const int cb_col = col + label_w + plot_cols + 1;
+        for (int y = 0; y < rows; ++y)
+        {
+                const double t = 1.0 - static_cast<double>(y) / rows;
+                buf.put_cell(row + y, cb_col, " ", tui::Color{}, tui::Color{tui::inferno(t)});
+        }
+        for (const int tick : {-30, -60, -90})
+        {
+                const int y = row + db_to_rows(tick, kSpecGramDbMin, kSpecGramDbMax, rows - 1);
+                buf.put(y, cb_col + 2, std::to_string(tick), tui::Color{kLabel});
         }
 }
 

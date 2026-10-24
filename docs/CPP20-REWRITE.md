@@ -36,11 +36,14 @@ digitando, Enter toca, ESC fecha).
 normalização de título), view de letras ('g'), fetch em offload sem
 bloquear a UI.
 
-**M4 adiantado — visualizadores**: FFT Spectrum (barras log-freq com
-peak-hold, estilo fft.png) e Spectrograma 2D scroll (rampa quente estilo
-espectrograma2d.png). CellBuffer ganhou cor (256, SGR); tap SPSC na audio
-thread espia o que o device tocou; pocketfft (plano C RAII) a 4096 com
-Hann 50% overlap; 'v' cicla os modos; relógio de UI adapta 50↔250ms.
+**M4 adiantado — visualizadores hi-fi**: FFT Spectrum com bandas de 1/3 de
+oitava (preenchimento verde→amarelo→vermelho + contorno de pico rosa,
+estilo fft.png) e Spectrograma 2D scroll com meio-bloco '▀' (resolução
+vertical ×2), LUT inferno EXATA do matplotlib (256 paradas, BSD), labels
+de frequência e colorbar de dB (estilo espectrograma2d.png). Cor
+truecolor 24-bit quando o terminal permite (COLORTERM/TERM), com
+quantização + dither Bayer 4x4 para o cubo 256. Tap SPSC na audio thread;
+pocketfft 2048 com Hann 75% overlap; 'v' cicla; relógio adapta 50↔250ms.
 
 **M0 — fundação**: scheduler de corrotinas (epoll + timers + eventfd),
 terminal layer própria em C++, harness PTY, build CMake `-Werror`.
@@ -184,11 +187,14 @@ ESC closes).
 **M3c — LRCLIB lyrics**: `net/` (sync http + LRCLIB with retry and title
 normalization), lyrics view ('g'), offloaded fetch that never blocks the UI.
 
-**Early M4 — visualizers**: FFT Spectrum (log-freq bars with peak-hold,
-like fft.png) and scrolling 2D spectrogram (hot ramp like
-espectrograma2d.png). CellBuffer grew color (256, SGR); an SPSC tap on the
-audio thread snoops what the device plays; pocketfft (RAII C plan) at 4096
-with Hann 50% overlap; 'v' cycles modes; the UI clock adapts 50↔250ms.
+**Early M4 — hi-fi visualizers**: FFT Spectrum with 1/3-octave bands
+(green→yellow→red fill + pink peak outline, like fft.png) and a scrolling
+2D spectrogram with half-block '▀' rendering (2x vertical resolution), the
+EXACT matplotlib inferno LUT (256 stops, BSD), frequency labels and a dB
+colorbar (like espectrograma2d.png). 24-bit truecolor when the terminal
+allows (COLORTERM/TERM), with quantization + Bayer 4x4 dither to the 256
+cube otherwise. Audio-thread SPSC tap; pocketfft 2048, Hann 75% overlap;
+'v' cycles; adaptive clock 50↔250ms.
 
 **M0 — foundation**: coroutine scheduler (epoll + timers + eventfd), own C++
 terminal layer, PTY smoke harness, CMake `-Werror` build.
@@ -333,11 +339,13 @@ tecleando, Enter reproduce, ESC cierra).
 normalización del título), vista de letras ('g'), fetch en offload sin
 bloquear la UI.
 
-**M4 adelantado — visualizadores**: FFT Spectrum (barras log-freq con
-peak-hold, como fft.png) y espectrograma 2D scroll (rampa caliente como
-espectrograma2d.png). CellBuffer ganó color (256, SGR); tap SPSC en el
-hilo de audio espía lo que el device suena; pocketfft (plan C RAII) a
-4096 con Hann 50% overlap; 'v' cicla los modos; reloj de UI adaptativo.
+**M4 adelantado — visualizadores hi-fi**: FFT Spectrum con bandas de 1/3
+de octava (relleno verde→amarillo→rojo + contorno de pico rosa, como
+fft.png) y espectrograma 2D con semibloque '▀' (resolución vertical ×2),
+LUT inferno EXACTA de matplotlib (256 paradas, BSD), labels de frecuencia
+y colorbar de dB (como espectrograma2d.png). Truecolor 24-bit cuando la
+terminal lo permite, con cuantización + dither Bayer 4x4 al cubo 256. Tap
+SPSC en el hilo de audio; pocketfft 2048 con Hann 75% overlap; 'v' cicla.
 
 **M0 — fundación**: scheduler de corrutinas (epoll + timers + eventfd),
 terminal layer propia en C++, harness PTY, build CMake `-Werror`.
@@ -479,11 +487,13 @@ ESC 关闭）。
 **M3c —— LRCLIB 歌词**：`net/`（同步 http + 带重试与标题归一化的
 LRCLIB），歌词视图（'g'），经 offload 的不阻塞获取。
 
-**提前的 M4 —— 可视化器**：FFT 频谱（对数频率柱状 + 峰值保持，类似
-fft.png）与滚动 2D 频谱图（hot 色带，类似 espectrograma2d.png）。
-CellBuffer 支持颜色（256 色、SGR）；音频线程上的 SPSC tap 窥视设备
-实际播放；pocketfft（RAII C plan）4096 点、Hann 窗 50% 重叠；'v'
-循环模式；UI 时钟自适应 50↔250ms。
+**提前的 M4 —— 高保真可视化器**：1/3 倍频程 FFT 频谱（绿→黄→红填充
++ 粉色峰值轮廓，类似 fft.png）与半块 '▀' 滚动 2D 频谱图（垂直分辨率
+×2）、matplotlib 精确 inferno LUT（256 档，BSD）、频率标签与 dB 色条
+（类似 espectrograma2d.png）。终端支持时走 24-bit truecolor
+（COLORTERM/TERM），否则量化 + Bayer 4x4 抖动到 256 色立方。音频线程
+SPSC tap；pocketfft 2048 点、Hann 窗 75% 重叠；'v' 循环模式；UI 时钟
+自适应 50↔250ms。
 
 **M0 —— 基础**：协程调度器（epoll + 定时器 + eventfd）、自研 C++ 终端
 层、PTY 冒烟 harness、CMake `-Werror` 构建。
