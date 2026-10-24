@@ -23,6 +23,7 @@
 #include "library/fuzzy.hpp"
 #include "library/library.hpp"
 #include "net/lrclib.hpp"
+#include "net/ytm.hpp"
 #include "script/lua_state.hpp"
 #include "tui/cell_buffer.hpp"
 #include "tui/term.hpp"
@@ -45,6 +46,14 @@ namespace
 {
 
 using namespace std::chrono_literals;
+
+// PT: Definida mais abaixo (usada pelo CLI --ytm antes da definição).
+// EN: Defined further below (used by the --ytm CLI before its definition).
+// ES: Definida más abajo (usada por el CLI --ytm antes de su definición).
+// ZH: 定义在下方（CLI --ytm 在其定义之前使用）。
+std::string sanitize_filename(const std::string &in);
+
+int cli_ytm(int argc, char **argv, audio::Engine &engine);
 
 std::string_view trim(std::string_view s)
 {
@@ -94,6 +103,66 @@ std::string mmss(std::chrono::microseconds us)
         return std::format("{:02}:{:02}", s / 60, s % 60);
 }
 
+// PT: CLI headless --ytm search|play (paridade com o kiutube C). search
+//     lista e sai; play baixa e DEIXA o TUI abrir tocando (retorna -1).
+// EN: Headless --ytm search|play CLI (parity with C kiutube). search lists
+//     and exits; play downloads and lets the TUI open playing (returns -1).
+// ES: CLI headless --ytm search|play (paridad con kiutube C).
+// ZH: 无头 --ytm search|play CLI（与 C 版 kiutube 对齐）。search 列出后
+//     退出；play 下载后进入 TUI 播放（返回 -1）。
+int cli_ytm(int argc, char **argv, audio::Engine &engine)
+{
+        if (argc < 4)
+        {
+                std::fprintf(stderr, "uso / usage / uso / 用法: kiutube2 --ytm search|play \"<query>\"\n");
+                return 2;
+        }
+        const std::string sub = argv[2];
+        std::string query;
+        for (int i = 3; i < argc; ++i)
+        {
+                if (i > 3)
+                        query += " ";
+                query += argv[i];
+        }
+        if (sub == "search")
+        {
+                const auto r = net::ytm_search(query, 10);
+                if (!r.has_value())
+                        return 1;
+                int n = 0;
+                for (const auto &t : *r)
+                {
+                        ++n;
+                        std::printf("%2d) %-12s %s — %s (%d:%02d)\n", n, t.video_id.c_str(), t.title.c_str(),
+                                    t.artist.c_str(), t.duration_seconds / 60, t.duration_seconds % 60);
+                }
+                return 0;
+        }
+        if (sub == "play")
+        {
+                const auto r = net::ytm_search(query, 1);
+                if (!r.has_value() || r->empty())
+                        return 1;
+                const std::string base_dir = std::getenv("XDG_CACHE_HOME")
+                                                 ? std::string(std::getenv("XDG_CACHE_HOME")) + "/kiutube2/streams"
+                                                 : std::string(std::getenv("HOME")) + "/.cache/kiutube2/streams";
+                const auto &t = (*r)[0];
+                const auto path =
+                        net::ytm_download(t.video_id, base_dir + "/" + sanitize_filename(t.artist) + " - " +
+                                                          sanitize_filename(t.title) + " [" + t.video_id + "]");
+                if (!path.has_value())
+                        return 1;
+                std::fprintf(stderr, "kiutube2: tocando / playing / reproduciendo / 播放: %s\n",
+                             path->c_str());
+                engine.enqueue(*path);
+                engine.play();
+                return -1; // PT: segue pro TUI / continue to the TUI / 进入 TUI
+        }
+        std::fprintf(stderr, "uso / usage / uso / 用法: kiutube2 --ytm search|play \"<query>\"\n");
+        return 2;
+}
+
 // PT: "Uploader - Artista - Título [videoId].webm" -> (artista, título):
 //     artista = antes do PRIMEIRO " - "; título = depois do ÚLTIMO " - "
 //     (nomes YTM duplicam o artista; o miolo é ruído de upload).
@@ -124,15 +193,31 @@ std::pair<std::string, std::string> split_artist_title(std::string_view filename
         return {artist, title};
 }
 
-// PT: Estado do picker de biblioteca (compartilhado com o relógio de UI).
-// EN: Library picker state (shared with the UI clock).
-// ES: Estado del picker de biblioteca (compartido con el reloj de UI).
-// ZH: 曲库选择器状态（与 UI 时钟共享）。
+// PT: Estado do picker: biblioteca (fuzzy Typesense) ou busca YTM (F8:
+//     prompt -> resultados -> download+play).
+// EN: Picker state: library (Typesense fuzzy) or YTM search (F8: prompt ->
+//     results -> download+play).
+// ES: Estado del picker: biblioteca o búsqueda YTM (F8: prompt ->
+//     resultados -> descarga+reproducción).
+// ZH: 选择器状态：曲库（Typesense 模糊搜索）或 YTM 搜索（F8：输入 ->
+//     结果 -> 下载并播放）。
+enum class PickerSource
+{
+        Library,
+        Ytm
+};
+
 struct Picker
 {
         bool active = false;
+        PickerSource source = PickerSource::Library;
         std::string filter;
-        std::vector<library::Scored> matches;
+        std::vector<library::Scored> matches;  // PT: fonte=Library / source=Library
+        std::vector<int> ytm_filtered;         // PT: índices em ytm_results / indices into ytm_results
+        std::vector<net::YtmResult> ytm_results;
+        bool ytm_prompt = false; // PT: fase de digitação da query / query typing phase
+        bool ytm_busy = false;   // PT: buscando ou baixando / searching or downloading
+        std::string status;      // PT: mensagem de status exibida / shown status message
         std::size_t sel = 0;
 };
 
@@ -243,7 +328,7 @@ struct Ui
                 if (!gui_open && viz.mode() != viz::Mode::Off)
                         viz.draw(buf, 13, 2, 7, buf.cols() - 4);
 
-                if (picker.active && tracks)
+                if (picker.active && (picker.source == PickerSource::Ytm || tracks))
                         draw_picker();
                 if (lyrics.active)
                         draw_lyrics();
@@ -252,6 +337,11 @@ struct Ui
 
         void draw_picker()
         {
+                if (picker.source == PickerSource::Ytm)
+                {
+                        draw_ytm_picker();
+                        return;
+                }
                 buf.put(13, 2, "LIB> " + picker.filter + "_");
                 const std::size_t max_rows = 8;
                 if (picker.sel >= picker.matches.size())
@@ -268,6 +358,44 @@ struct Ui
                 }
                 if (picker.matches.empty())
                         buf.put(14, 2, "(vazio / empty / vacío / 空)");
+        }
+
+        // PT: Picker YTM (F8): fase de prompt (digita a query) e fase de
+        //     resultados (navega + Enter baixa e toca). Status em 4 idiomas.
+        // EN: YTM picker (F8): prompt phase (type the query) and results
+        //     phase (navigate + Enter downloads and plays).
+        // ES: Picker YTM (F8): fase de prompt y fase de resultados.
+        // ZH: YTM 选择器（F8）：输入阶段与结果阶段（导航 + Enter 下载并播放）。
+        void draw_ytm_picker()
+        {
+                if (picker.ytm_prompt)
+                {
+                        buf.put(13, 2, "YTM> " + picker.filter + "_");
+                        buf.put(14, 2, "Enter: buscar / search / buscar / 搜索   ESC: "
+                                       "cancelar / cancel / cancelar / 取消");
+                }
+                else
+                {
+                        buf.put(13, 2, "YTM> " + picker.filter + "  (" +
+                                       std::to_string(picker.ytm_filtered.size()) + ")");
+                        const std::size_t max_rows = 8;
+                        if (picker.sel >= picker.ytm_filtered.size())
+                                picker.sel = picker.ytm_filtered.empty() ? 0 : picker.ytm_filtered.size() - 1;
+                        const std::size_t start =
+                            picker.sel >= max_rows ? picker.sel - max_rows + 1 : 0;
+                        for (std::size_t r = 0; r < max_rows && start + r < picker.ytm_filtered.size(); ++r)
+                        {
+                                const auto &t = picker.ytm_results[static_cast<std::size_t>(
+                                    picker.ytm_filtered[start + r])];
+                                std::string line = (start + r == picker.sel ? "> " : "  ") + t.title + "  --  " +
+                                                   t.artist;
+                                if (t.duration_seconds > 0)
+                                        line += "  (" + mmss(std::chrono::seconds(t.duration_seconds)) + ")";
+                                buf.put(14 + r, 2, line);
+                        }
+                }
+                if (!picker.status.empty())
+                        buf.put(23, 2, picker.status);
         }
 
         void draw_lyrics()
@@ -330,12 +458,92 @@ krt::Task<void> ui_clock(Ui &ui, std::atomic<bool> &alive)
         }
 }
 
+// PT: Busca YTM em background (yt-dlp dentro de offload) e preenche o
+//     picker. Download em segundo plano com o mesmo padrão.
+// EN: Background YTM search (yt-dlp inside offload) filling the picker.
+//     Download follows the same pattern.
+// ES: Búsqueda YTM en background rellenando el picker. / ZH: 后台 YTM 搜索
+//     （yt-dlp 置于 offload），填充选择器；下载同模式。
+krt::Task<void> ytm_search_task(std::string query, Picker &picker)
+{
+        auto res = co_await krt::offload([q = std::move(query)] { return net::ytm_search(q, 10); });
+        picker.ytm_busy = false;
+        if (res.has_value() && !res->empty())
+        {
+                picker.ytm_results = std::move(*res);
+                picker.ytm_prompt = false;
+                picker.filter.clear();
+                picker.sel = 0;
+                picker.status.clear();
+                picker.ytm_filtered.resize(picker.ytm_results.size());
+                for (std::size_t i = 0; i < picker.ytm_results.size(); ++i)
+                        picker.ytm_filtered[i] = static_cast<int>(i);
+        }
+        else
+        {
+                picker.status = "Nenhum resultado / no results / sin resultados / 无结果";
+        }
+}
+
+// PT: Sanitiza nome de arquivo (mesmo jogo do sanitize do ytm: ASCII seguro).
+// EN: Sanitizes a filename (same game as ytm's sanitize: safe ASCII).
+// ES: Sanitiza nombre de archivo (mismo juego que el sanitize de ytm).
+// ZH: 文件名清理（与 ytm 的 sanitize 相同：安全 ASCII）。
+std::string sanitize_filename(const std::string &in)
+{
+        std::string out;
+        for (const char c : in)
+        {
+                const bool ok = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+                                (c >= '0' && c <= '9') || c == ' ' || c == '-' || c == '_' || c == '(' || c == ')' ||
+                                c == '[' || c == ']' || c == '.';
+                out += ok ? c : '_';
+        }
+        return out;
+}
+
+krt::Task<void> ytm_download_task(net::YtmResult track, audio::Engine &engine, Picker &picker,
+                                  app::Settings &settings, std::vector<library::Track> &tracks, Ui *ui_for_rescan)
+{
+        // PT: destino: library_path se houver, senão ~/.cache/kiutube2/streams.
+        // EN: destination: library_path if set, else ~/.cache/kiutube2/streams.
+        std::string dir = settings.library_path;
+        if (dir.empty())
+        {
+                std::string base = std::getenv("XDG_CACHE_HOME") ? std::getenv("XDG_CACHE_HOME")
+                                                                 : std::string(std::getenv("HOME")) + "/.cache";
+                dir = base + "/kiutube2/streams";
+        }
+        const std::string base = dir + "/" + sanitize_filename(track.artist) + " - " +
+                                 sanitize_filename(track.title) + " [" + track.video_id + "]";
+        auto path = co_await krt::offload([&] { return net::ytm_download(track.video_id, base); });
+        picker.ytm_busy = false;
+        if (path.has_value())
+        {
+                engine.enqueue(*path);
+                engine.next();
+                engine.play();
+                picker.active = false;
+                picker.status.clear();
+                // PT: re-escaneia a biblioteca pra incluir o arquivo novo.
+                // EN: rescans the library to include the new file.
+                if (!settings.library_path.empty())
+                {
+                        tracks = co_await krt::offload([&] { return library::scan(settings.library_path); });
+                        (void)ui_for_rescan;
+                }
+        }
+        else
+        {
+                picker.status = "Falha no download / download failed / fallo / 下载失败";
+        }
+}
+
 // PT: Busca a letra em background (rede síncrona dentro de offload) e
 //     preenche o painel — o relógio de UI redesenha quando chegar.
 // EN: Fetches lyrics in the background (sync network inside offload) and
 //     fills the pane — the UI clock redraws when it arrives.
-// ES: Busca la letra en background (red síncrona dentro de offload) y llena
-//     el panel — el reloj de UI redibuja cuando llegue.
+// ES: Busca la letra en background y llena el panel.
 // ZH: 后台获取歌词（同步网络置于 offload 中）并填充面板 —— UI 时钟在到达后
 //     重绘。
 krt::Task<void> fetch_lyrics_task(std::string artist, std::string title, int duration_seconds,
@@ -376,12 +584,32 @@ krt::Task<void> app_main(audio::Engine &engine, Ui &ui, std::atomic<bool> &alive
         }
         ui.tracks = &tracks;
 
-        std::vector<krt::Task<void>> bg_tasks; // PT: lyrics tasks mantidas vivas / kept alive
+        std::vector<krt::Task<void>> bg_tasks; // PT: lyrics/buscas/downloads mantidos vivos / kept alive
 
         auto recompute = [&] {
                 ui.picker.matches = library::fuzzy_filter(tracks, ui.picker.filter);
                 if (ui.picker.sel >= ui.picker.matches.size())
                         ui.picker.sel = 0;
+        };
+
+        // PT: Filtro substring (case-insensitive) dos resultados YTM.
+        // EN: Case-insensitive substring filter over YTM results.
+        // ES: Filtro substring (case-insensitive) de los resultados YTM.
+        // ZH: 对 YTM 结果做大小写不敏感的子串过滤。
+        auto filter_ytm = [](Picker &p) {
+                std::string lf;
+                for (const char c : p.filter)
+                        lf += static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
+                p.ytm_filtered.clear();
+                for (std::size_t i = 0; i < p.ytm_results.size(); ++i)
+                {
+                        std::string hay = p.ytm_results[i].title + " " + p.ytm_results[i].artist;
+                        for (auto &c : hay)
+                                c = static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
+                        if (lf.empty() || hay.find(lf) != std::string::npos)
+                                p.ytm_filtered.push_back(static_cast<int>(i));
+                }
+                p.sel = 0;
         };
 
         ui.draw();
@@ -398,14 +626,73 @@ krt::Task<void> app_main(audio::Engine &engine, Ui &ui, std::atomic<bool> &alive
                 {
                         bool handled = true;
                         if (ev.key == tui::Key::Esc)
-                                ui.picker.active = false;
+                                ui.picker = Picker{};
+                        else if (ui.picker.source == PickerSource::Ytm)
+                        {
+                                if (ui.picker.ytm_prompt)
+                                {
+                                        // PT: fase de digitação da query YTM.
+                                        // EN: YTM query typing phase.
+                                        if (ev.key == tui::Key::Enter && !ui.picker.filter.empty() &&
+                                            !ui.picker.ytm_busy)
+                                        {
+                                                ui.picker.ytm_busy = true;
+                                                ui.picker.status = "Buscando / searching / buscando / 搜索中 ...";
+                                                bg_tasks.push_back(
+                                                    ytm_search_task(ui.picker.filter, ui.picker));
+                                                bg_tasks.back().start();
+                                        }
+                                        else if (ev.key == tui::Key::Backspace && !ui.picker.filter.empty())
+                                                ui.picker.filter.pop_back();
+                                        else if (ev.key == tui::Key::Char && ev.ch >= 0x20 && ev.ch < 0x7f)
+                                                ui.picker.filter += static_cast<char>(ev.ch);
+                                        else
+                                                handled = false;
+                                }
+                                else
+                                {
+                                        // PT: fase de resultados: filtra em
+                                        //   tempo real, navega e Enter baixa+toca.
+                                        // EN: results phase: live filtering,
+                                        //   navigation, Enter downloads+plays.
+                                        if (ev.key == tui::Key::Up && ui.picker.sel > 0)
+                                                --ui.picker.sel;
+                                        else if (ev.key == tui::Key::Down &&
+                                                 ui.picker.sel + 1 < ui.picker.ytm_filtered.size())
+                                                ++ui.picker.sel;
+                                        else if (ev.key == tui::Key::Enter &&
+                                                 !ui.picker.ytm_filtered.empty() && !ui.picker.ytm_busy)
+                                        {
+                                                const auto track = ui.picker.ytm_results[static_cast<std::size_t>(
+                                                    ui.picker.ytm_filtered[ui.picker.sel])];
+                                                ui.picker.ytm_busy = true;
+                                                ui.picker.status =
+                                                    "Baixando / downloading / descargando / 下载中 ...";
+                                                bg_tasks.push_back(ytm_download_task(
+                                                    track, engine, ui.picker, settings, tracks, &ui));
+                                                bg_tasks.back().start();
+                                        }
+                                        else if (ev.key == tui::Key::Backspace && !ui.picker.filter.empty())
+                                        {
+                                                ui.picker.filter.pop_back();
+                                                filter_ytm(ui.picker);
+                                        }
+                                        else if (ev.key == tui::Key::Char && ev.ch >= 0x20 && ev.ch < 0x7f)
+                                        {
+                                                ui.picker.filter += static_cast<char>(ev.ch);
+                                                filter_ytm(ui.picker);
+                                        }
+                                        else
+                                                handled = false;
+                                }
+                        }
                         else if (ev.key == tui::Key::Enter && !ui.picker.matches.empty() &&
                                  ui.picker.sel < ui.picker.matches.size())
                         {
                                 const auto &t = tracks[static_cast<std::size_t>(
                                     ui.picker.matches[ui.picker.sel].index)];
                                 engine.enqueue(t.path);
-                                engine.next(); // PT: troca imediatamente / EN: switch immediately / ZH: 立即切换
+                                engine.next(); // PT: troca imediatamente / EN: switch immediately
                                 engine.play();
                                 ui.picker.active = false;
                         }
@@ -495,6 +782,21 @@ krt::Task<void> app_main(audio::Engine &engine, Ui &ui, std::atomic<bool> &alive
                                 }
                                 break;
                         }
+                        case app::Event::YtmSearch:
+                                // PT: F8: prompt de busca YTM (rede em
+                                //     background; download na seleção).
+                                // EN: F8: YTM search prompt (background
+                                //     network; download on selection).
+                                // ES: F8: prompt de búsqueda YTM.
+                                // ZH: F8：YTM 搜索输入框（后台网络；选中即下载）。
+                                if (!ui.picker.ytm_busy)
+                                {
+                                        ui.picker = Picker{};
+                                        ui.picker.active = true;
+                                        ui.picker.source = PickerSource::Ytm;
+                                        ui.picker.ytm_prompt = true;
+                                }
+                                break;
                         case app::Event::CycleViz:
                                 // PT: cicla Off -> Spectrum -> Spectrogram -> Off e
                                 //     espelha na janela gráfica (settings.visualizer
@@ -541,6 +843,12 @@ int main(int argc, char **argv)
 {
         audio::Engine engine;
         app::Settings early_settings;
+        if (argc >= 2 && std::string_view(argv[1]) == "--ytm")
+        {
+                const int rc = cli_ytm(argc, argv, engine);
+                if (rc >= 0)
+                        return rc; // PT: search/erro: sai; play cai no TUI abaixo
+        }
         if (argc >= 3 && std::string_view(argv[1]) == "play")
         {
                 for (int i = 2; i < argc; ++i)

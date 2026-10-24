@@ -150,6 +150,7 @@ add_executable(kiutube2
   player/library/library.cpp
   player/net/http.cpp
   player/net/lrclib.cpp
+  player/net/ytm.cpp
   player/script/lua_state.cpp
   player/tui/term.cpp
   player/tui/visualizer.cpp
