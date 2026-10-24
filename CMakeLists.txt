@@ -7,7 +7,7 @@
 # ZH: kiutube2（C++20 重写）的 CMake。在 M5 之前与旧的 Makefile（C 构建）共存；
 #     见 docs/CPP20-REWRITE.md。
 cmake_minimum_required(VERSION 3.28)
-project(kiutube2 VERSION 0.1.0 LANGUAGES CXX)
+project(kiutube2 VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -78,7 +78,9 @@ target_include_directories(kiutube2_deps SYSTEM INTERFACE
   ${sol2_SOURCE_DIR}/include
   ${magic_enum_SOURCE_DIR}/include
   ${pocketfft_SOURCE_DIR}
-  ${CMAKE_SOURCE_DIR}/include/miniaudio)
+  ${CMAKE_SOURCE_DIR}/include
+  ${CMAKE_SOURCE_DIR}/include/miniaudio
+  ${CMAKE_SOURCE_DIR}/src/sound)
 target_link_libraries(kiutube2_deps INTERFACE Threads::Threads dl ${LUA_LIBRARY})
 
 # PT: miniaudio no Linux fala ALSA; se não houver, cai em null backend (sem som).
@@ -90,18 +92,55 @@ if(ASOUND_LIBRARY)
   target_link_libraries(kiutube2_deps INTERFACE ${ASOUND_LIBRARY})
 endif()
 
-# PT: Binário M2: engine de áudio (device miniaudio + ring + feeder).
-# EN: M2 binary: audio engine (miniaudio device + ring + feeder).
-# ES: Binario M2: engine de audio (device miniaudio + ring + feeder).
-# ZH: M2 二进制：音频引擎（miniaudio 设备 + 环形缓冲 + feeder）。
+# PT: Demux/decodificação webm: nestegg (C) + opus/opusfile + vorbis.
+# EN: Webm demux/decoding: nestegg (C) + opus/opusfile + vorbis.
+# ES: Demux/decodificación webm: nestegg (C) + opus/opusfile + vorbis.
+# ZH: webm 解封装/解码：nestegg（C）+ opus/opusfile + vorbis。
+find_library(OPUSFILE_LIBRARY opusfile)
+find_library(OPUS_LIBRARY opus)
+find_library(VORBISFILE_LIBRARY vorbisfile)
+find_library(VORBIS_LIBRARY vorbis)
+find_library(OGG_LIBRARY ogg)
+# PT: headers de opus/opusfile em subdir (Debian: /usr/include/opus).
+# EN: opus/opusfile headers live in a subdir (Debian: /usr/include/opus).
+# ES: los headers de opus/opusfile están en un subdirectorio (Debian).
+# ZH: opus/opusfile 头文件位于子目录（Debian：/usr/include/opus）。
+find_path(OPUS_INCLUDE_DIR opusfile.h PATH_SUFFIXES opus)
+find_path(VORBIS_INCLUDE_DIR vorbisfile.h PATH_SUFFIXES vorbis)
+foreach(lib OPUSFILE_LIBRARY OPUS_LIBRARY VORBISFILE_LIBRARY VORBIS_LIBRARY OGG_LIBRARY)
+  if(${lib})
+    target_link_libraries(kiutube2_deps INTERFACE ${${lib}})
+  endif()
+endforeach()
+foreach(inc OPUS_INCLUDE_DIR VORBIS_INCLUDE_DIR)
+  if(${inc})
+    target_include_directories(kiutube2_deps SYSTEM INTERFACE ${${inc}})
+  endif()
+endforeach()
+
+# PT: Binário M3a: AnyDecoder com fallback webm (nestegg + opus/vorbis).
+# EN: M3a binary: AnyDecoder with webm fallback (nestegg + opus/vorbis).
+# ES: Binario M3a: AnyDecoder con fallback webm (nestegg + opus/vorbis).
+# ZH: M3a 二进制：带 webm 回退的 AnyDecoder（nestegg + opus/vorbis）。
 add_executable(kiutube2
   player/main.cpp
   player/audio/decoder.cpp
   player/audio/engine.cpp
-  player/audio/miniaudio_impl.cpp
+  player/audio/decoder_impl.c
+  player/audio/webm_decoder.cpp
   player/krt/scheduler.cpp
   player/script/lua_state.cpp
-  player/tui/term.cpp)
+  player/tui/term.cpp
+  include/nestegg/nestegg.c)
+# PT: Código legado (webm.h do kew, nestegg): warnings suprimidos por não
+#     serem nossos para polir; a fronteira C fica no shim.
+# EN: Legacy code (kew's webm.h, nestegg): warnings suppressed — not ours to
+#     polish; the C boundary lives in the shim.
+# ES: Código legado (webm.h de kew, nestegg): warnings suprimidos — la
+#     frontera C vive en el shim.
+# ZH: 遗留代码（kew 的 webm.h、nestegg）：抑制警告 —— C 边界位于 shim。
+set_source_files_properties(player/audio/webm_decoder.cpp player/audio/decoder_impl.c include/nestegg/nestegg.c
+  PROPERTIES COMPILE_FLAGS "-w")
 target_include_directories(kiutube2 PRIVATE player)
 target_link_libraries(kiutube2 PRIVATE kiutube2_deps)
 
@@ -125,7 +164,7 @@ target_link_libraries(settings_smoke PRIVATE kiutube2_deps)
 # EN: Decoder smoke test (C++-generated WAV, resampling, seek, EOF).
 # ES: Smoke test del decoder (WAV generado en C++, remuestreo, seek, EOF).
 # ZH: 解码器冒烟测试（C++ 生成 WAV、重采样、seek、EOF）。
-add_executable(audio_smoke player/tests/audio_smoke.cpp player/audio/decoder.cpp player/audio/miniaudio_impl.cpp)
+add_executable(audio_smoke player/tests/audio_smoke.cpp player/audio/decoder.cpp player/audio/decoder_impl.c include/nestegg/nestegg.c)
 target_include_directories(audio_smoke PRIVATE player)
 target_link_libraries(audio_smoke PRIVATE kiutube2_deps)
 

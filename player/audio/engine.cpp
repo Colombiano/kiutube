@@ -15,6 +15,8 @@
 //     volume。miniaudio 只存在于本 TU（IMPLEMENTATION）与 decoder.cpp（声明）。
 #include "audio/engine.hpp"
 
+#include "audio/any_decoder.hpp"
+#include "audio/webm_decoder.hpp"
 #include "krt/log.hpp"
 #include "krt/scheduler.hpp"
 
@@ -35,6 +37,36 @@ namespace audio
 // ES: Capacidad del ring en floats: 2^18 = 262144 ≈ 2,7s de stereo 48kHz.
 // ZH: 环形缓冲容量（float）：2^18 = 262144 ≈ 48kHz 立体声 2.7 秒。
 constexpr std::size_t kRingCap = 1u << 18;
+
+namespace
+{
+
+// PT: Tenta cada adapter em ordem (miniaudio nativo, depois webm/opus do
+//     kew). Retorna o primeiro que abrir; vazio se nenhum conseguir.
+// EN: Tries each adapter in order (native miniaudio, then kew's webm/opus).
+//     Returns the first that opens; empty if none succeed.
+// ES: Prueba cada adapter en orden (miniaudio nativo, luego webm/opus de
+//     kew). Devuelve el primero que abra; vacío si ninguno lo consigue.
+// ZH: 按顺序尝试各适配器（原生 miniaudio，然后是 kew 的 webm/opus）。
+//     返回第一个能打开文件的；全部失败则返回空。
+[[nodiscard]] AnyDecoder try_open_decoder(const std::string &path, int target_rate)
+{
+        {
+                MaDecoder d;
+                if (d.open(path, target_rate))
+                        return AnyDecoder{std::move(d)};
+        }
+        {
+                WebmDecoder d;
+                if (d.open(path, target_rate))
+                        return AnyDecoder{std::move(d)};
+        }
+        krt::log::warn("audio: nenhum decoder abriu / no decoder opened / ningún decoder abrió / 无解码器可打开: {}",
+                       path);
+        return {};
+}
+
+} // namespace
 
 struct Engine::Impl
 {
@@ -71,7 +103,7 @@ struct Engine::Impl
         // ZH: feeder<->UI 共享状态（短互斥锁，无 I/O）。
         std::mutex m;
         std::deque<std::string> queue;
-        MaDecoder cur;
+        AnyDecoder cur;
         bool has_dec = false;    // PT: slot do decoder (libera no EOF p/ gapless).
                                  // EN: decoder slot (freed at EOF for gapless).
                                  // ES: slot del decoder (se libera en EOF para gapless).
@@ -152,8 +184,8 @@ struct Engine::Impl
                 }
                 if (need_open)
                 {
-                        MaDecoder d;
-                        if (!d.open(next_path, dev_rate))
+                        AnyDecoder d = try_open_decoder(next_path, dev_rate);
+                        if (!d)
                         {
                                 std::lock_guard lk(m);
                                 if (!queue.empty())
@@ -323,7 +355,7 @@ bool Engine::next()
         impl_->has_dec = false;
         impl_->has_playing = false;
         impl_->playing_info = TrackInfo{};
-        impl_->cur = MaDecoder{};
+        impl_->cur = AnyDecoder{};
         impl_->pos_us.store(0, std::memory_order_relaxed);
         impl_->gen.fetch_add(1, std::memory_order_acq_rel);
         impl_->rd.store(0, std::memory_order_release);
