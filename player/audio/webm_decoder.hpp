@@ -1,14 +1,14 @@
 // PT: Decoder de WebM/Opus (e WebM/Vorbis) adaptando a implementação C
-//     battle-tested do kew (src/sound/webm.h, miniaudio-compatible) para o
+//     battle-tested do kew (include/compat/webm/webm.h, miniaudio-compatible) para o
 //     nosso concept Decoder. Wrapper RAII: nada de lógica de demux aqui.
 // EN: WebM/Opus (and WebM/Vorbis) decoder adapting kew's battle-tested C
-//     implementation (src/sound/webm.h, miniaudio-compatible) to our Decoder
+//     implementation (include/compat/webm/webm.h, miniaudio-compatible) to our Decoder
 //     concept. RAII wrapper: no demux logic lives here.
 // ES: Decoder de WebM/Opus (y WebM/Vorbis) adaptando la implementación C
-//     probada de kew (src/sound/webm.h, compatible con miniaudio) a nuestro
+//     probada de kew (include/compat/webm/webm.h, compatible con miniaudio) a nuestro
 //     concept Decoder. Wrapper RAII: sin lógica de demux aquí.
 // ZH: WebM/Opus（以及 WebM/Vorbis）解码器：将 kew 经过实战检验的 C 实现
-//     （src/sound/webm.h，兼容 miniaudio）适配到我们的 Decoder concept。
+//     （include/compat/webm/webm.h，兼容 miniaudio）适配到我们的 Decoder concept。
 //     RAII 包装：此处不包含任何 demux 逻辑。
 #pragma once
 

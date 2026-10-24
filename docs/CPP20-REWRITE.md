@@ -20,15 +20,19 @@ Bibliotecas C maduras (miniaudio, decoders, demuxers, libcurl, chafa, PUC Lua)
 não são reescritas — são encapsuladas atrás de wrappers RAII com
 `extern "C"`.
 
-### Estado actual: M0 ✅ M1 ✅ M2 ✅ M3 ✅ M4 ✅
+### Estado atual: M0 ✅ M1 ✅ M2 ✅ M3 ✅ M4 ✅ M5 ✅
 
-**M4 — vistas completas + carátula TUI**: vista de playlist de la cola
-('p': snapshot al abrir — '>>' en la pista actual, Up/Down navegan,
-Enter salta vía `engine.jump_to`, ESC cierra); vista de detalle de la
-pista actual ('i'); carátula en la TUI ('c') vía `cover::Canvas` —
-wrapper RAII sobre chafa (modo símbolo/truecolor, celdas por
-`chafa_canvas_get_char_at`/`get_colors_at` 0x00RRGGBB) + stb_image
-vendored; 1 render por pista. Sin chafa, compila con stub de misma API. M4 ✅
+**M5 — fim da reescrita**: MPRIS via sdbus-c++ v2 (`sys/mpris`, thread
+própria com event loop próprio: Play/Pause/PlayPause/Next/Previous/Seek,
+PlaybackStatus/Metadata/Position/Volume, PropertiesChanged num poller de
+1s — GLib sai do nosso link; o glib restante em ldd é transitivo via
+Qt/chafa). O C legado (~35,5k linhas, src/) sai do repositório —
+exceção deliberada: o demux webm segue como spec implementada em
+`include/compat/webm/webm.h`. Makefile/flake/po/installer legados fora;
+CI via CMake+ctest. Binário renomeado `kiutube2` → `kiutube` (o produto
+agora É a reescrita): macros `KIUTUBE_*`, config/cache em
+`~/.config/kiutube` e `~/.cache/kiutube`. Gates: busctl (PlayPause/
+Volume/Seek) + ctest 7/7 + PTY.
 
 **M4 — views completas + capa TUI**: view de playlist da fila ('p':
 snapshot na abertura — '>>' na faixa atual, Up/Down navegam, Enter pula
@@ -45,7 +49,7 @@ truecolor.
 **M3a — caches YTM**: `AnyDecoder` (apagamento de tipo sobre o concept, vtable
 estática) com cadeia de adapters na engine (miniaudio → webm); demux
 nestegg+opus/vorbis via shim RAII sobre a implementação C do kew
-(`src/sound/webm.h`, TU único em C). Gate: .webm real tocando com sink input
+(`include/compat/webm/webm.h`, TU único em C). Gate: .webm real tocando com sink input
 pactl.
 
 **M3b — biblioteca fuzzy**: scan recursivo com taglib, busca fuzzy com a
@@ -176,7 +180,7 @@ Todo comentário, documento, string de UI e commit segue PT → EN → ES → ZH
 | M2 ✅ | audio::Engine + Decoder concept + play/pause/seek/gapless + gate pactl |
 | M3 ✅ | WebmDecoder (caches YTM), library taglib + fuzzy Typesense + picker, letras LRCLIB |
 | M4 ✅ | Views completas (playlist ✅/faixa ✅), ~~visualizador~~ ✅, capa chafa ✅, F8 YTM ✅, CLI --ytm ✅, migra ytm p/ net ✅ |
-| M5 | MPRIS sdbus-c++, apaga src/ C, renomeia binário |
+| M5 ✅ | MPRIS sdbus-c++ ✅ (GLib fora do link), src/ C apagado ✅, binário renomeado p/ kiutube ✅ |
 
 ### Como buildar e testar
 
@@ -213,7 +217,19 @@ Boundary philosophy: **own your code, wrap what you don't need to own**.
 Mature C libraries (miniaudio, decoders, demuxers, libcurl, chafa, PUC Lua)
 are not rewritten — they are wrapped behind RAII `extern "C"` interfaces.
 
-### Current state: M0 ✅ M1 ✅ M2 ✅ M3 ✅ M4 ✅
+### Current state: M0 ✅ M1 ✅ M2 ✅ M3 ✅ M4 ✅ M5 ✅
+
+**M5 — rewrite complete**: MPRIS via sdbus-c++ v2 (`sys/mpris`, own
+thread with its own event loop: Play/Pause/PlayPause/Next/Previous/Seek,
+PlaybackStatus/Metadata/Position/Volume, PropertiesChanged on a 1s
+poller — GLib leaves our link; the glib left in ldd is transitive via
+Qt/chafa). The legacy C (~35.5k lines, src/) leaves the repository —
+deliberate exception: the webm demuxer stays as the implemented spec in
+`include/compat/webm/webm.h`. Legacy Makefile/flake/po/installer gone;
+CI via CMake+ctest. Binary renamed `kiutube2` -> `kiutube` (the product
+IS the rewrite now): `KIUTUBE_*` macros, config/cache under
+`~/.config/kiutube` and `~/.cache/kiutube`. Gates: busctl (PlayPause/
+Volume/Seek) + ctest 7/7 + PTY.
 
 **M4 — full views + TUI cover**: queue playlist view ('p': snapshot on
 open — '>>' on the current track, Up/Down navigate, Enter jumps through
@@ -230,7 +246,7 @@ shows the path; 'c' emits block glyphs with truecolor SGR.
 **M3a — YTM caches**: `AnyDecoder` (type erasure over the concept, static
 vtable) with an adapter chain in the engine (miniaudio → webm); nestegg+opus/
 vorbis demux through a RAII shim over kew's C implementation
-(`src/sound/webm.h`, single C TU). Gate: real .webm playing with a pactl
+(`include/compat/webm/webm.h`, single C TU). Gate: real .webm playing with a pactl
 sink input.
 
 **M3b — fuzzy library**: taglib recursive scan, fuzzy search with Typesense's
@@ -360,7 +376,7 @@ Every comment, document, UI string and commit follows PT → EN → ES → ZH.
 | M2 ✅ | audio::Engine + Decoder concept + play/pause/seek/gapless + pactl gate |
 | M3 ✅ | WebmDecoder (YTM caches), taglib library + Typesense fuzzy + picker, LRCLIB lyrics |
 | M4 ✅ | Full views (playlist ✅/track ✅), ~~visualizer~~ ✅, chafa cover ✅, F8 YTM ✅, --ytm CLI ✅, ytm migration to net ✅ |
-| M5 | sdbus-c++ MPRIS, delete legacy src/ C, rename binary |
+| M5 ✅ | sdbus-c++ MPRIS ✅ (GLib off the link), legacy src/ C deleted ✅, binary renamed to kiutube ✅ |
 
 ### Build and test
 
@@ -397,7 +413,26 @@ Filosofía de frontera: **own your code, wrap what you don't need to own**.
 Las bibliotecas C maduras (miniaudio, decoders, demuxers, libcurl, chafa, PUC
 Lua) no se reescriben — se encapsulan tras wrappers RAII con `extern "C"`.
 
-### Estado actual: M0 ✅ M1 ✅ M2 ✅ M3 ✅
+### Estado actual: M0 ✅ M1 ✅ M2 ✅ M3 ✅ M4 ✅ M5 ✅
+
+**M5 — fin de la reescritura**: MPRIS vía sdbus-c++ v2 (`sys/mpris`, hilo
+propio con event loop propio; GLib sale de nuestro link). El C legado
+(~35,5k líneas, src/) sale del repositorio — excepción deliberada: el
+demuxer webm sigue como spec implementada en
+`include/compat/webm/webm.h`. Makefile/flake/po/installer legados fuera;
+CI vía CMake+ctest. Binario renombrado `kiutube2` → `kiutube` (el
+producto AHORA ES la reescritura): macros `KIUTUBE_*`, config/cache en
+`~/.config/kiutube` y `~/.cache/kiutube`.
+
+**M4 — vistas completas + carátula TUI**: vista de playlist de la cola
+('p': snapshot al abrir — '>>' en la pista actual, Up/Down navegan,
+Enter salta vía `engine.jump_to`, ESC cierra); vista de detalle de la
+pista actual ('i'); carátula en la TUI ('c') vía `cover::Canvas` —
+wrapper RAII sobre chafa (modo símbolo/truecolor, celdas por
+`chafa_canvas_get_char_at`/`get_colors_at` 0x00RRGGBB) + stb_image
+vendored; 1 render por pista. Sin chafa, compila con stub de misma API.
+Gate PTY: 'p' → navegar → Enter salta; 'i' muestra el path; 'c' emite
+glifos de bloque con SGR truecolor.
 
 **M3a — cachés YTM**: `AnyDecoder` (borrado de tipo sobre el concept, vtable
 estática) con cadena de adapters en la engine (miniaudio → webm); demux
@@ -529,7 +564,7 @@ Todo comentario, documento, string de UI y commit sigue PT → EN → ES → ZH.
 | M2 ✅ | audio::Engine + Decoder concept + play/pause/seek/gapless + gate pactl |
 | M3 ✅ | WebmDecoder (cachés YTM), library taglib + fuzzy Typesense + picker, letras LRCLIB |
 | M4 ✅ | Views completas ✅, visualizador pocketfft ✅, capa chafa ✅, F8 YTM ✅, CLI --ytm ✅, migración ytm a net ✅ |
-| M5 | MPRIS sdbus-c++, se borra src/ C, renombra binario |
+| M5 ✅ | MPRIS sdbus-c++ ✅ (GLib fuera del link), src/ C borrado ✅, binario renombrado a kiutube ✅ |
 
 ### Cómo compilar y probar
 
@@ -564,7 +599,16 @@ intérprete Lua en C++; soporte Windows/SMTC hasta nuevo aviso.
 库（miniaudio、解码器、解封装器、libcurl、chafa、PUC Lua）不做重写
 —— 而是通过 RAII + `extern "C"` 包装。
 
-### 当前状态：M0 ✅ M1 ✅ M2 ✅ M3 ✅ M4 ✅
+### 当前状态：M0 ✅ M1 ✅ M2 ✅ M3 ✅ M4 ✅ M5 ✅
+
+**M5 —— 重写完成**：经 sdbus-c++ v2 的 MPRIS（`sys/mpris`，独立线程 +
+独立事件循环；GLib 退出我们的链接，ldd 中剩余的 glib 来自 Qt/chafa
+传递依赖）。旧 C 代码（约 35,500 行，src/）离开仓库 —— 刻意保留的
+例外：webm 解封装器作为"已实现的规范"留在
+`include/compat/webm/webm.h`。旧 Makefile/flake/po/installer 一并移除；
+CI 走 CMake+ctest。二进制重命名 `kiutube2` → `kiutube`（产品现在
+就是重写本身）：宏 `KIUTUBE_*`，配置/缓存位于 `~/.config/kiutube` 与
+`~/.cache/kiutube`。
 
 **M4 —— 完整视图 + TUI 封面**：队列播放列表视图（'p'：打开时取快照
 ——">>" 标记当前曲目，Up/Down 导航，Enter 经 `engine.jump_to` 跳转，
@@ -700,7 +744,7 @@ UI 组件的 CRTP、`std::format`。
 | M2 ✅ | audio::Engine + Decoder concept + play/pause/seek/gapless + pactl 门槛 |
 | M3 ✅ | WebmDecoder（YTM 缓存）、taglib 曲库 + Typesense 模糊搜索 + 选择器、LRCLIB 歌词 |
 | M4 ✅ | 完整视图 ✅、~~可视化器~~ ✅、chafa 封面 ✅、F8 YTM ✅、--ytm CLI ✅、ytm 迁移到 net ✅ |
-| M5 | sdbus-c++ MPRIS、删除旧 src/ C、重命名二进制 |
+| M5 ✅ | sdbus-c++ MPRIS ✅（GLib 退出链接）、旧 src/ C 已删除 ✅、二进制重命名为 kiutube ✅ |
 
 ### 构建与测试
 

@@ -1,13 +1,13 @@
-// PT: Shim sobre src/sound/webm.h (C, GPL-2 do kew): a única unidade que
+// PT: Shim sobre include/compat/webm/webm.h (C, GPL-2 do kew): a única unidade que
 //     inclui o header legado. Compilada com -w (CMake): não é nosso código
 //     para polir, é infraestrutura encapsulada — a fronteira C fica aqui.
-// EN: Shim over src/sound/webm.h (C, kew's GPL-2): the only unit including
+// EN: Shim over include/compat/webm/webm.h (C, kew's GPL-2): the only unit including
 //     the legacy header. Compiled with -w (CMake): not our code to polish,
 //     it is encapsulated infrastructure — the C boundary lives here.
-// ES: Shim sobre src/sound/webm.h (C, GPL-2 de kew): la única unidad que
+// ES: Shim sobre include/compat/webm/webm.h (C, GPL-2 de kew): la única unidad que
 //     incluye el header legado. Compilada con -w (CMake): no es nuestro
 //     código para pulir — la frontera C vive aquí.
-// ZH: 基于 src/sound/webm.h（C，kew 的 GPL-2）的 shim：唯一引入该遗留头文件
+// ZH: 基于 include/compat/webm/webm.h（C，kew 的 GPL-2）的 shim：唯一引入该遗留头文件
 //     的编译单元。以 -w 编译（CMake）：不是我们打磨的代码，而是被封装的
 //     基础设施 —— C 边界就在此处。
 #include "audio/webm_decoder.hpp"
