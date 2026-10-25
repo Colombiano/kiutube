@@ -46,7 +46,8 @@ enum class Event : std::uint16_t
         CycleViz,
         Playlist,    // PT: view da fila (p): lista, navega, Enter pula / queue view: list, navigate, Enter jumps / ZH: 队列视图
         ToggleCover, // PT: capa chafa na TUI (c) / chafa cover in the TUI / ZH: TUI 封面开关
-        TrackInfo    // PT: detalhes da faixa (i) / track detail view / ZH: 曲目详情
+        TrackInfo,   // PT: detalhes da faixa (i) / track detail view / ZH: 曲目详情
+        CycleTheme   // PT: cicla temas (t) / cycle themes / ZH: 循环主题
 };
 
 struct Settings
@@ -56,6 +57,7 @@ struct Settings
         bool shuffle = false;       // kewrc: shuffle=
         bool visualizer = true;     // kewrc: visualizer=
         bool translation = true;    // PT: traduzir letras p/ PT (F9 alterna) / translate lyrics (F9 toggles) / 歌词翻译（F9 切换）
+        std::string theme = "default"; // PT: tema .theme do kew (kewrc: theme=, --theme) / kew .theme name / 主题名
 };
 
 // PT: Descritor tipado: nome de config + ponteiro-para-membro.
@@ -83,6 +85,7 @@ inline constexpr auto kSettingsDescs = std::tuple{
     SettingDesc<bool>{.name = "shuffle", .member = &Settings::shuffle},
     SettingDesc<bool>{.name = "visualizer", .member = &Settings::visualizer},
     SettingDesc<bool>{.name = "translation", .member = &Settings::translation},
+    SettingDesc<std::string>{.name = "theme", .member = &Settings::theme},
 };
 
 // PT: Aplica F(desc) para cada descritor em compile-time.

@@ -70,6 +70,14 @@ class Visualizer
         void set_mode(Mode m);
         [[nodiscard]] Mode mode() const;
 
+        // PT: Paleta do espectro (tema); o espectrograma 2D mantém a LUT
+        //     inferno. Default = verde→amarelo→vermelho, pico rosa.
+        // EN: Spectrum palette (theme); the 2D spectrogram keeps the
+        //     inferno LUT. Default = green→yellow→red, pink peak.
+        // ZH: 频谱调色板（主题）；2D 频谱图保持 inferno LUT。默认 绿→黄→红、
+        //     粉色峰值。
+        void set_palette(tui::Rgb lo, tui::Rgb mid, tui::Rgb hi, tui::Rgb peak);
+
         void feed(std::span<const float> stereo_frames);
 
         void draw(tui::CellBuffer &buf, int row, int col, int rows, int cols);
@@ -85,6 +93,16 @@ class Visualizer
         void draw_spectrogram(tui::CellBuffer &, int row, int col, int rows, int cols);
 
         Mode mode_ = Mode::Off;
+        // PT: Paleta do espectro (tema; default = verde->amarelo->vermelho,
+        //     pico rosa). Spectrograma 2D segue com a LUT inferno.
+        // EN: Spectrum palette (theme; default = green->yellow->red, pink
+        //     peak). The 2D spectrogram keeps the inferno LUT.
+        // ZH: 频谱调色板（主题；默认 绿->黄->红、粉色峰值）。2D 频谱图保持
+        //     inferno LUT。
+        tui::Rgb pal_lo_{40, 200, 70};
+        tui::Rgb pal_mid_{240, 200, 40};
+        tui::Rgb pal_hi_{230, 40, 40};
+        tui::Rgb pal_peak_{255, 110, 150};
         rfft_plan_i *plan_ = nullptr;
         std::vector<double> samples_; // PT: mono acumulado / mono accum
         std::vector<double> window_;  // PT: janela Hann / Hann window

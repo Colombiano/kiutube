@@ -59,6 +59,8 @@ janela gráfica (Qt) e MPRIS. A reescrita está completa
 | Busca YTM na TUI | **F8**: prompt → resultados → Enter baixa e toca |
 | Letra original/traduzida | **F9** alterna na TUI |
 | Config em Lua | `~/.config/kiutube/init.lua` |
+| Temas (.theme do kew) | `kiutube --themes` prevê, `--theme NOME` aplica, **t** cicla ao vivo |
+| Mini-MAN | `kiutube --help` (idioma do `LANG`) |
 | CLI headless | `kiutube --ytm search|play|lyrics ...` |
 
 ### Instalar via GitHub
@@ -121,6 +123,8 @@ repository). Roadmap in
 | In-TUI YTM search | **F8**: prompt → results → Enter downloads and plays |
 | Original/translated lyrics | **F9** toggles in the TUI |
 | Lua config | `~/.config/kiutube/init.lua` |
+| Themes (kew .theme) | `kiutube --themes` previews, `--theme NAME` applies, **t** cycles live |
+| Mini-MAN | `kiutube --help` (in your `LANG`) |
 | Headless CLI | `kiutube --ytm search|play|lyrics ...` |
 
 ### Installing from GitHub
@@ -183,6 +187,8 @@ FFT, ventana gráfica (Qt) y MPRIS. La reescritura está completa
 | Búsqueda YTM en la TUI | **F8**: prompt → resultados → Enter descarga y reproduce |
 | Letra original/traducida | **F9** alterna en la TUI |
 | Config en Lua | `~/.config/kiutube/init.lua` |
+| Temas (.theme de kew) | `kiutube --themes` con vista previa, `--theme NOMBRE`, **t** cicla |
+| Mini-MAN | `kiutube --help` (idioma del `LANG`) |
 | CLI headless | `kiutube --ytm search|play|lyrics ...` |
 
 ### Instalar desde GitHub
@@ -243,6 +249,8 @@ LRCLIB 同步歌词与自动翻译、曲库模糊搜索、FFT 可视化器、图
 | TUI 内 YTM 搜索 | **F8**：输入 → 结果 → Enter 下载并播放 |
 | 原文/译文切换 | **F9** 在 TUI 内切换 |
 | Lua 配置 | `~/.config/kiutube/init.lua` |
+| 主题（kew .theme） | `kiutube --themes` 预览，`--theme 名称` 应用，**t** 实时循环 |
+| Mini man | `kiutube --help`（跟随 `LANG`） |
 | 无头 CLI | `kiutube --ytm search|play|lyrics ...` |
 
 ### 从 GitHub 安装

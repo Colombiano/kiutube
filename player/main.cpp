@@ -14,8 +14,10 @@
 //     TUI 选择器 + LRCLIB 歌词视图。'l' 打开曲库（输入即过滤，Enter 播放，
 //     ESC 关闭）；'g' 获取当前曲目歌词（网络经 offload，绝不阻塞）。
 #include "app/bindings.hpp"
+#include "app/man.hpp"
 #include "app/paths.hpp"
 #include "app/settings.hpp"
+#include "app/theme.hpp"
 #include "audio/engine.hpp"
 #include "gui/viz_window.hpp"
 #include "krt/log.hpp"
@@ -35,7 +37,9 @@
 
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <deque>
 #include <exception>
 #include <filesystem>
@@ -334,6 +338,16 @@ struct Ui
         PlaylistPane playlist;
         TrackPane trackinfo;
         CoverPane cover;
+        // PT: Temas: registro carregado no boot e o tema ativo (ponteiro
+        //     estável dentro de `themes`). 't' cicla; --theme/settings.theme
+        //     escolhem o inicial.
+        // EN: Themes: registry loaded at boot and the active theme (stable
+        //     pointer into `themes`). 't' cycles; --theme/settings.theme
+        //     pick the initial one.
+        // ZH: 主题：启动时加载注册表；'t' 循环切换；--theme/settings.theme
+        //     选择初始主题。
+        std::vector<app::Theme> themes;
+        const app::Theme *theme = nullptr;
         viz::Visualizer viz;
         // PT: Janela gráfica (thread própria). O callback roda NO SCHEDULER
         //     (post_function) quando o usuário fecha a janela: alinha o modo.
@@ -353,9 +367,78 @@ struct Ui
               })
         {
                 buf = tui::CellBuffer(term.rows(), term.cols());
+                themes = app::load_themes();
+                apply_theme(settings.theme);
         }
 
         ~Ui() = default; // PT: vizwin (membro último) é destruída primeiro, fechando a thread GUI. / vizwin (last member) is destroyed first, closing the GUI thread.
+
+        // PT: Cor de uma chave do tema ativo com fallback no default; sem
+        //     definição em nenhum = herda o terminal ({}).
+        // EN: A theme key's color with fallback to the default theme; unset
+        //     in both = inherit the terminal ({}).
+        // ZH: 主题键颜色，回退 default 主题；均未定义 = 继承终端（{}）。
+        [[nodiscard]] tui::Color themed(std::string_view key) const
+        {
+                if (theme)
+                        if (auto c = theme->get(key); c.set)
+                                return c;
+                return app::default_theme().get(key);
+        }
+
+        // PT: Cor concreta para a paleta do visualizador: chave viz.* do
+        //     tema, derivada de trackview.visualizer/accent, ou o default.
+        // EN: A concrete color for the visualizer palette: the theme's
+        //     viz.* key, derived from trackview.visualizer/accent, or the
+        //     default. ZH: 可视化器调色板取色：viz.* 键，或派生，或默认。
+        [[nodiscard]] tui::Rgb viz_color(std::string_view key, std::string_view alt, tui::Rgb fb) const
+        {
+                if (theme)
+                {
+                        const auto it = theme->colors.find(std::string(key));
+                        if (it != theme->colors.end())
+                                return it->second;
+                        const auto a = theme->colors.find(std::string(alt));
+                        if (a != theme->colors.end())
+                                return a->second;
+                }
+                return fb;
+        }
+
+        // PT: Ativa um tema por id (desconhecido cai no "default") e
+        //     espelha a paleta no visualizador.
+        // EN: Activates a theme by id (unknown falls back to "default") and
+        //     mirrors the palette onto the visualizer.
+        // ZH: 按 id 激活主题（未知回退 "default"），并同步可视化器调色板。
+        void apply_theme(const std::string &id)
+        {
+                theme = app::find_theme(themes, id);
+                if (!theme)
+                        theme = app::find_theme(themes, "default");
+                const auto &d = app::default_theme().colors;
+                const auto fb = [&d](const char *k) {
+                        const auto it = d.find(k);
+                        return it != d.end() ? it->second : tui::Rgb{255, 255, 255};
+                };
+                viz.set_palette(viz_color("viz.low", "trackview.visualizer", fb("viz.low")),
+                                viz_color("viz.mid", "trackview.visualizer", fb("viz.mid")),
+                                viz_color("viz.high", "accent", fb("viz.high")),
+                                viz_color("viz.peak", "accent", fb("viz.peak")));
+        }
+
+        // PT: Próximo tema da lista (ordem do --themes); usado pela tecla 't'.
+        // EN: Next theme in the list (--themes order); used by the 't' key.
+        // ZH: 列表中的下一个主题（--themes 顺序）；'t' 键使用。
+        [[nodiscard]] std::string next_theme_id() const
+        {
+                if (themes.empty())
+                        return "default";
+                const std::string cur = theme ? theme->id : "default";
+                for (std::size_t i = 0; i < themes.size(); ++i)
+                        if (themes[i].id == cur)
+                                return themes[(i + 1) % themes.size()].id;
+                return themes.front().id;
+        }
 
         void draw()
         {
@@ -382,32 +465,52 @@ struct Ui
                 }
 
                 buf.clear();
-                buf.put(1, 2, "kiutube - M3+viz / PT / EN / ES / ZH");
-                buf.put(3, 2, "PT: biblioteca fuzzy + letras + visualizadores");
-                buf.put(4, 2, "EN: fuzzy library + lyrics + visualizers");
-                buf.put(5, 2, "ES: biblioteca fuzzy + letras + visualizadores");
-                buf.put(6, 2, "ZH: \xe6\xa8\xa1\xe7\xb3\x8a\xe6\x90\x9c\xe7\xb4\xa2 + \xe6\xad\x8c\xe8\xaf\x8d + \xe5\x8f\xaf\xe8\xa7\x86\xe5\x8c\x96");
+                buf.put(1, 2, "kiutube - M3+viz / PT / EN / ES / ZH", themed("accent"));
+                buf.put(3, 2, "PT: biblioteca fuzzy + letras + visualizadores", themed("textMuted"));
+                buf.put(4, 2, "EN: fuzzy library + lyrics + visualizers", themed("textMuted"));
+                buf.put(5, 2, "ES: biblioteca fuzzy + letras + visualizadores", themed("textMuted"));
+                buf.put(6, 2, "ZH: \xe6\xa8\xa1\xe7\xb3\x8a\xe6\x90\x9c\xe7\xb4\xa2 + \xe6\xad\x8c\xe8\xaf\x8d + \xe5\x8f\xaf\xe8\xa7\x86\xe5\x8c\x96", themed("textMuted"));
                 if (cur.path.empty())
                 {
-                        buf.put(8, 2, "kiutube play <arquivo / file / archivo / \xe6\x96\x87\xe4\xbb\xb6> ...   keys: l/g/v/p/i/c");
+                        buf.put(8, 2, "kiutube play <arquivo / file / archivo / \xe6\x96\x87\xe4\xbb\xb6> ...   keys: l/g/v/p/i/c/t");
                         buf.put(9, 2, "key " + last_key);
                 }
                 else
                 {
-                        buf.put(8, 2, cur.title);
+                        buf.put(8, 2, cur.title, themed("nowplaying"));
                         const auto shown_pos = std::min(pos, cur.duration);
-                        const std::string line = mmss(shown_pos) + " / " + mmss(cur.duration) +
+                        // PT: Barra de progresso (16 células, cores
+                        //     progress.filled/empty do tema) + tempos.
+                        // EN: Progress bar (16 cells, theme's
+                        //     progress.filled/empty colors) + times.
+                        // ZH: 进度条（16 格，主题 progress.filled/empty 色）+ 时间。
+                        const double frac = cur.duration.count() > 0
+                                                ? static_cast<double>(shown_pos.count()) / cur.duration.count()
+                                                : 0.0;
+                        const auto filled = themed("progress.filled");
+                        const auto empty = themed("progress.empty");
+                        for (int i = 0; i < 16; ++i)
+                        {
+                                const bool on = i < static_cast<int>(frac * 16.0 + 0.5);
+                                if (filled.set && empty.set)
+                                        buf.put_cell(9, 2 + i, " ", tui::Color{}, on ? filled : empty);
+                                else
+                                        buf.put_cell(9, 2 + i, on ? "\xe2\x96\x88" : "\xe2\x96\x91", tui::Color{},
+                                                     tui::Color{});
+                        }
+                        const std::string line = " " + mmss(shown_pos) + " / " + mmss(cur.duration) +
                                                  (engine.is_playing() ? "  |>" : "  ||") + "  vol " +
                                                  std::to_string(static_cast<int>(engine.volume() * 100.0f + 0.5f)) +
                                                  "%  queue " + std::to_string(engine.queue_size()) +
                                                  "  key " + last_key;
-                        buf.put(9, 2, line);
+                        buf.put(9, 19, line, themed("text"));
                 }
                 std::string cfg = "volume=" + std::to_string(settings.volume) + " shuffle=" +
                                   (settings.shuffle ? "on" : "off") + " visualizer=" +
                                   (settings.visualizer ? "on" : "off") +
-                                  (tracks ? " lib=" + std::to_string(tracks->size()) : "");
-                buf.put(11, 2, cfg);
+                                  (tracks ? " lib=" + std::to_string(tracks->size()) : "") +
+                                  " theme=" + (theme ? theme->id : "default");
+                buf.put(11, 2, cfg, themed("textMuted"));
 
                 // PT: Área do visualizador (rows 13..19). settings.visualizer
                 //     = off força o modo Off. Capa ativa toma a área (só um
@@ -459,7 +562,7 @@ struct Ui
                         std::string line = (start + r == picker.sel ? "> " : "  ") + t.title;
                         if (!t.artist.empty())
                                 line += "  --  " + t.artist;
-                        buf.put(14 + r, 2, line);
+                        buf.put(14 + r, 2, line, start + r == picker.sel ? themed("playlist.playing") : tui::Color{});
                 }
                 if (picker.matches.empty())
                         buf.put(14, 2, "(vazio / empty / vacío / 空)");
@@ -616,7 +719,7 @@ struct Ui
                 std::size_t row = 14;
                 if (!cur.path.empty())
                 {
-                        buf.put(static_cast<int>(row), 2, ">> " + cur.title + "  (<)");
+                        buf.put(static_cast<int>(row), 2, ">> " + cur.title + "  (<)", themed("nowplaying"));
                         ++row;
                 }
                 const std::size_t max_rows = 12;
@@ -627,7 +730,8 @@ struct Ui
                 {
                         std::string line = (start + r == playlist.sel ? "> " : "  ") +
                                            stem_title(playlist.items[start + r]);
-                        buf.put(static_cast<int>(row + r), 2, line);
+                        buf.put(static_cast<int>(row + r), 2, line,
+                                start + r == playlist.sel ? themed("playlist.playing") : tui::Color{});
                 }
                 if (playlist.items.empty())
                         buf.put(static_cast<int>(row), 2,
@@ -1133,6 +1237,17 @@ krt::Task<void> app_main(audio::Engine &engine, Ui &ui, std::atomic<bool> &alive
                                 // ZH: 'c'：TUI chafa 封面（每曲目渲染一次）。
                                 ui.cover.active = !ui.cover.active;
                                 break;
+                        case app::Event::CycleTheme:
+                                // PT: 't': cicla temas ao vivo (nome aparece na
+                                //     linha de config). --theme escolhe o inicial.
+                                // EN: 't': cycles themes live (name shows on the
+                                //     config line). --theme picks the initial one.
+                                // ES: 't': cicla temas en vivo.
+                                // ZH: 't'：实时循环主题（名称显示在配置行）。
+                                ui.apply_theme(ui.next_theme_id());
+                                krt::log::info("theme: / tema / tema / 主题: {}",
+                                               ui.theme ? ui.theme->id : "default");
+                                break;
                         case app::Event::ToggleTranslation:
                                 // PT: F9 alterna letra original/traduzida na view
                                 //     de letras (se a tradução chegou).
@@ -1159,21 +1274,147 @@ krt::Task<void> app_main(audio::Engine &engine, Ui &ui, std::atomic<bool> &alive
 
 } // namespace
 
+// PT: Idioma do mini-MAN: pt/en/es/zh a partir de LANG/LC_ALL/
+//     LC_MESSAGES (prefixo, case-insensitive); pt = fallback.
+// EN: Mini-MAN language: pt/en/es/zh from LANG/LC_ALL/LC_MESSAGES
+//     (prefix, case-insensitive); pt = fallback.
+// ZH: mini man 语言：取自 LANG/LC_ALL/LC_MESSAGES 前缀（pt/en/es/zh），
+//     默认 pt。
+std::string ui_lang()
+{
+        for (const char *var : {"LC_ALL", "LC_MESSAGES", "LANG"})
+                if (const char *v = std::getenv(var))
+                {
+                        std::string s(v);
+                        for (auto &c : s)
+                                c = static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
+                        for (const char *code : {"pt", "en", "es", "zh"})
+                                if (s.rfind(code, 0) == 0)
+                                        return code;
+                }
+        return "pt";
+}
+
+// PT: Prévia dos temas no terminal (--themes): nome, "Aa" no accent, mini
+//     barra filled/empty e o gradiente da paleta do visualizador. Cores
+//     truecolor só quando stdout é TTY; em pipe, só os nomes.
+// EN: Terminal theme preview (--themes): name, "Aa" in accent, a mini
+//     filled/empty bar and the visualizer palette gradient. Truecolor
+//     only when stdout is a TTY; names only in pipes.
+// ZH: 终端主题预览（--themes）：名称、accent 色 "Aa"、迷你进度条与可视化
+//     调色板渐变。仅 stdout 为 TTY 时输出真彩色；管道只输出名称。
+void print_themes_preview(const std::vector<app::Theme> &themes)
+{
+        const bool ansi = ::isatty(fileno(stdout));
+        const auto pick = [&themes](const app::Theme &t, std::string_view key, std::string_view alt) {
+                const auto it = t.colors.find(std::string(key));
+                if (it != t.colors.end())
+                        return it->second;
+                const auto a = t.colors.find(std::string(alt));
+                if (a != t.colors.end())
+                        return a->second;
+                return app::default_theme().get(key).rgb;
+        };
+        const auto lerp = [](const tui::Rgb &a, const tui::Rgb &b, double u) {
+                return tui::Rgb{static_cast<std::uint8_t>(std::lround(a.r + (b.r - a.r) * u)),
+                                static_cast<std::uint8_t>(std::lround(a.g + (b.g - a.g) * u)),
+                                static_cast<std::uint8_t>(std::lround(a.b + (b.b - a.b) * u))};
+        };
+        const auto sgr_fg = [](const tui::Rgb &c) { return std::format("\x1b[38;2;{};{};{}m", c.r, c.g, c.b); };
+        const auto sgr_bg = [](const tui::Rgb &c) { return std::format("\x1b[48;2;{};{};{}m", c.r, c.g, c.b); };
+        std::printf("%-18s %-14s %s\n", "id", "title / título / 名称", "preview / prévia / 预览");
+        for (const auto &t : themes)
+        {
+                const tui::Rgb accent = t.get("accent").set ? t.get("accent").rgb
+                                                            : t.get("nowplaying").set ? t.get("nowplaying").rgb
+                                                                                      : tui::Rgb{210, 210, 210};
+                const tui::Rgb filled = t.get("progress.filled").set
+                                            ? t.get("progress.filled").rgb
+                                            : app::default_theme().get("progress.filled").rgb;
+                const tui::Rgb empty = t.get("progress.empty").set
+                                           ? t.get("progress.empty").rgb
+                                           : app::default_theme().get("progress.empty").rgb;
+                const tui::Rgb lo = pick(t, "viz.low", "trackview.visualizer");
+                const tui::Rgb hi = pick(t, "viz.high", "accent");
+                const tui::Rgb peak = pick(t, "viz.peak", "accent");
+                std::string line = std::format("{:<18} {:<14} ", t.id, t.title);
+                if (ansi)
+                {
+                        line += sgr_fg(accent) + "Aa\x1b[0m  ";
+                        for (int i = 0; i < 6; ++i)
+                                line += sgr_bg(i < 3 ? filled : empty) + " \x1b[0m";
+                        line += "  ";
+                        for (int i = 0; i < 8; ++i)
+                                line += sgr_bg(lerp(lo, hi, i / 7.0)) + " \x1b[0m";
+                        line += sgr_fg(peak) + "^\x1b[0m";
+                }
+                else
+                        line += "(colors / cores / 彩色 — TTY only)";
+                std::printf("%s\n", line.c_str());
+        }
+}
+
 int main(int argc, char **argv)
 {
         audio::Engine engine;
-        sys::Mpris mpris(engine); // PT: thread própria; dtor junta antes do engine / own thread; joins before the engine
         app::Settings early_settings;
-        if (argc >= 2 && std::string_view(argv[1]) == "--ytm")
+        // PT: Mini-MAN (--help) e a vitrine de temas (--themes) rodam sem
+        //     TUI/MPRIS: puros printf no stdout, exit 0.
+        // EN: Mini-MAN (--help) and the theme showcase (--themes) run
+        //     without TUI/MPRIS: plain printf to stdout, exit 0.
+        // ZH: mini man（--help）与主题橱窗（--themes）不经 TUI/MPRIS：
+        //     直接打印到 stdout 后 exit 0。
+        if (argc >= 2 && (std::string_view(argv[1]) == "--help" || std::string_view(argv[1]) == "-h"))
         {
-                const int rc = cli_ytm(argc, argv, engine);
-                if (rc >= 0)
-                        return rc; // PT: search/erro: sai; play cai no TUI abaixo
+                app::print_man(stdout, ui_lang());
+                return 0;
         }
-        if (argc >= 3 && std::string_view(argv[1]) == "play")
+        if (argc >= 2 && std::string_view(argv[1]) == "--themes")
         {
-                for (int i = 2; i < argc; ++i)
-                        engine.enqueue(argv[i]);
+                print_themes_preview(app::load_themes());
+                return 0;
+        }
+        // PT: Parse flexível: flags e subcomandos em QUALQUER ordem
+        //     (`kiutube --theme gruvbox play a.flac` == `play a.flac
+        //     --theme gruvbox`). `--` separa flags de nomes de arquivo.
+        // EN: Flexible parsing: flags and subcommands in ANY order
+        //     (`kiutube --theme gruvbox play a.flac` == `play a.flac
+        //     --theme gruvbox`). `--` separates flags from file names.
+        // ZH: 灵活解析：标志与子命令可任意排列；`--` 分隔标志与文件名。
+        bool want_play = false;
+        bool after_dashdash = false;
+        std::vector<std::string> play_files;
+        for (int i = 1; i < argc; ++i)
+        {
+                const std::string_view a(argv[i]);
+                if (after_dashdash)
+                {
+                        play_files.emplace_back(argv[i]);
+                        continue;
+                }
+                if (a == "--")
+                {
+                        after_dashdash = true;
+                        continue;
+                }
+                if (a == "--theme" && i + 1 < argc)
+                        early_settings.theme = argv[++i];
+                else if (a == "play")
+                        want_play = true;
+                else if (a == "--ytm" && i + 1 < argc)
+                {
+                        const int rc = cli_ytm(argc - i, argv + i, engine);
+                        if (rc >= 0)
+                                return rc; // PT: search/erro: sai; play cai no TUI abaixo
+                }
+                else if (want_play)
+                        play_files.emplace_back(argv[i]);
+        }
+        sys::Mpris mpris(engine); // PT: thread própria; dtor junta antes do engine / own thread; joins before the engine
+        if (want_play)
+        {
+                for (const auto &f : play_files)
+                        engine.enqueue(f);
                 engine.play();
         }
 

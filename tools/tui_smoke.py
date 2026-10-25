@@ -144,11 +144,22 @@ def main():
         if kind == "expect":
             found = False
             while time.time() < deadline:
-                if not pump(master, out, 0.2):
-                    break
+                # PT: checa ANTES de bombear: programas que já morreram
+                #     (ex.: --help) deixaram o valor no acumulado, e um
+                #     pump que retorna False (EOF) não deve impedir o match.
+                # EN: check BEFORE pumping: programs that already died
+                #     (e.g. --help) left the value in the accumulated
+                #     output, and a False-returning pump (EOF) must not
+                #     prevent the match.
+                # ZH: 先检查再读取：快速退出的程序（如 --help）已把目标
+                #     字符串留在累积输出中，EOF 不应阻止匹配。
                 if value in "".join(out):
                     found = True
                     break
+                if not pump(master, out, 0.2):
+                    break
+            if not found and value in "".join(out):
+                found = True
             if not found:
                 ok = False
                 print(f"tui_smoke: FAIL esperando / waiting / esperando / 等待: {value!r}", file=sys.stderr)

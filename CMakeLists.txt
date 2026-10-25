@@ -187,6 +187,7 @@ add_executable(kiutube
   player/audio/webm_decoder.cpp
   player/krt/scheduler.cpp
   player/library/library.cpp
+  player/app/theme.cpp
   player/net/http.cpp
   player/net/lrclib.cpp
   player/net/translate.cpp
@@ -265,6 +266,14 @@ target_link_libraries(scheduler_smoke PRIVATE kiutube_deps)
 add_executable(settings_smoke player/tests/settings_smoke.cpp)
 target_include_directories(settings_smoke PRIVATE player)
 target_link_libraries(settings_smoke PRIVATE kiutube_deps)
+
+# PT: Smoke test do sistema de temas (parse .theme do kew).
+# EN: Theme system smoke test (kew .theme parsing).
+# ES: Smoke test de temas. / ZH: 主题系统冒烟测试（kew .theme 解析）。
+add_executable(theme_smoke player/tests/theme_smoke.cpp player/app/theme.cpp)
+target_include_directories(theme_smoke PRIVATE player)
+target_link_libraries(theme_smoke PRIVATE kiutube_deps)
+add_test(NAME theme_smoke COMMAND theme_smoke)
 
 # PT: Smoke test do decoder (WAV gerado em C++, reamostragem, seek, EOF).
 # EN: Decoder smoke test (C++-generated WAV, resampling, seek, EOF).

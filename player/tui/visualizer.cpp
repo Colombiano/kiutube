@@ -70,16 +70,29 @@ constexpr double kFmax = Visualizer::kFreqMax;
         return static_cast<int>(t * rows);
 }
 
-// PT: cor do preenchimento por altura (verde->amarelo->vermelho).
-// EN: fill color by height (green->yellow->red).
-// ES: color de relleno por altura. / ZH: 按高度的填充色（绿->黄->红）。
-[[nodiscard]] tui::Rgb height_color(double t)
+// PT: cor do preenchimento por altura: interpola a paleta do tema
+//     (low->mid->high). O default reproduz o histórico verde->amarelo->vermelho.
+// EN: fill color by height: interpolates the theme palette
+//     (low->mid->high). The default reproduces the historical
+//     green->yellow->red.
+// ZH: 按高度的填充色：在主题调色板（low->mid->high）间插值。默认复刻历史
+//     绿->黄->红。
+[[nodiscard]] tui::Rgb lerp(const tui::Rgb &a, const tui::Rgb &b, double t)
+{
+        return {static_cast<std::uint8_t>(std::lround(a.r + (b.r - a.r) * t)),
+                static_cast<std::uint8_t>(std::lround(a.g + (b.g - a.g) * t)),
+                static_cast<std::uint8_t>(std::lround(a.b + (b.b - a.b) * t))};
+}
+
+[[nodiscard]] tui::Rgb height_color(const tui::Rgb &lo, const tui::Rgb &mid, const tui::Rgb &hi, double t)
 {
         if (t > 0.85)
-                return {230, 40, 40};
+                return hi;
         if (t > 0.6)
-                return {240, 200, 40};
-        return {40, 200, 70};
+                return lerp(mid, hi, (t - 0.6) / 0.25);
+        if (t > 0.3)
+                return lerp(lo, mid, (t - 0.3) / 0.3);
+        return lo;
 }
 
 } // namespace
@@ -92,6 +105,19 @@ Visualizer::Visualizer()
                 throw std::runtime_error("pocketfft: make_rfft_plan falhou / failed / fallo / 失败");
         for (int i = 0; i < kFftSize; ++i)
                 window_[i] = 0.5 * (1.0 - std::cos(2.0 * M_PI * i / (kFftSize - 1)));
+}
+
+// PT: Paleta do espectro via tema; o espectrograma 2D segue na LUT
+//     inferno (temas não o alteram nesta versão).
+// EN: Spectrum palette from the theme; the 2D spectrogram keeps the
+//     inferno LUT (themes don't change it in this version).
+// ZH: 频谱调色板来自主题；2D 频谱图保持 inferno LUT（本版主题不改它）。
+void Visualizer::set_palette(tui::Rgb lo, tui::Rgb mid, tui::Rgb hi, tui::Rgb peak)
+{
+        pal_lo_ = lo;
+        pal_mid_ = mid;
+        pal_hi_ = hi;
+        pal_peak_ = peak;
 }
 
 Visualizer::~Visualizer()
@@ -172,7 +198,6 @@ void Visualizer::draw_spectrum(tui::CellBuffer &buf, int row, int col, int rows,
         const int bar_cols = cols - label_w;
         const tui::Rgb kLabel{150, 150, 150};
         const tui::Rgb kFloor{90, 90, 90};
-        const tui::Rgb kPeak{255, 110, 150};
 
         // PT: ticks de dB no eixo Y (fft.png: -20 a -100).
         // EN: dB ticks on the Y axis (fft.png: -20 to -100).
@@ -207,10 +232,11 @@ void Visualizer::draw_spectrum(tui::CellBuffer &buf, int row, int col, int rows,
                                 const int from_bottom = rows - 1 - y;
                                 if (from_bottom <= h)
                                         buf.put_cell(row + y, x, " ", tui::Color{},
-                                                     tui::Color{height_color(static_cast<double>(from_bottom) /
-                                                                             (rows - 1))});
+                                                     tui::Color{height_color(pal_lo_, pal_mid_, pal_hi_,
+                                                                             static_cast<double>(from_bottom) /
+                                                                                 (rows - 1))});
                                 else if (from_bottom == peak_h && peak_h > h)
-                                        buf.put_cell(row + y, x, "^", tui::Color{kPeak}, tui::Color{});
+                                        buf.put_cell(row + y, x, "^", tui::Color{pal_peak_}, tui::Color{});
                         }
                         buf.put_cell(row + rows - 1, x, "_", tui::Color{kFloor}, tui::Color{});
                 }

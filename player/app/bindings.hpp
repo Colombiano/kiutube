@@ -93,6 +93,11 @@ inline constexpr Binding kDefaultBindings[] = {
     {{tui::Key::Char, 'I', tui::MOD_NONE}, Event::TrackInfo},
     {{tui::Key::Char, 'c', tui::MOD_NONE}, Event::ToggleCover},
     {{tui::Key::Char, 'C', tui::MOD_NONE}, Event::ToggleCover},
+    // PT: 't' cicla os temas carregados (built-in + ~/.config/kiutube/themes).
+    // EN: 't' cycles the loaded themes (built-in + ~/.config/*/themes).
+    // ES: 't' cicla los temas cargados. / ZH: 't' 循环切换已加载主题。
+    {{tui::Key::Char, 't', tui::MOD_NONE}, Event::CycleTheme},
+    {{tui::Key::Char, 'T', tui::MOD_NONE}, Event::CycleTheme},
 };
 
 // PT: Parse de nome de tecla (case-insensitive): "x", "F8", "enter", "ctrl-x",

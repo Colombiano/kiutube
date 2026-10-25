@@ -22,6 +22,22 @@ não são reescritas — são encapsuladas atrás de wrappers RAII com
 
 ### Estado atual: M0 ✅ M1 ✅ M2 ✅ M3 ✅ M4 ✅ M5 ✅
 
+**Temas + mini-MAN (pós-M5)**: temas no formato `.theme` do kew (INI:
+`#rrggbb`, ANSI 0-15, -1 herda o terminal) carregados de built-in +
+`~/.config/kiutube/themes` + `~/.config/kew/themes` (compat com a
+coleção do kew; ids repetidos não sobrescrevem). `kiutube --themes`
+lista com prévia colorida (accent, barra filled/empty, gradiente da
+paleta); `--theme NOME` / `theme=` no kewrc / `settings.theme` no Lua
+escolhem; a tecla **t** cicla ao vivo (nome na linha de config).
+Consumo v1: accent (cabeçalho), nowplaying, textMuted, playlist.playing,
+progress.filled/empty (nova barra de progresso na linha da faixa) e
+viz.low/mid/high/peak (paleta do espectro; o espectrograma 2D segue na
+LUT inferno). `kiutube --help`/`-h` imprime um mini-MAN estilo man(1)
+(NAME, SYNOPSIS, DESCRIPTION, OPTIONS, KEYS, FILES, ENVIRONMENT,
+EXAMPLES, SEE ALSO) com seções em negrito ANSI (sem ANSI em pipe) no
+idioma do LANG (pt/en/es/zh). CLI de parsing flexível: flags e
+subcomandos em qualquer ordem (`--theme gruvbox play a.flac`).
+
 **M5 — fim da reescrita**: MPRIS via sdbus-c++ v2 (`sys/mpris`, thread
 própria com event loop próprio: Play/Pause/PlayPause/Next/Previous/Seek,
 PlaybackStatus/Metadata/Position/Volume, PropertiesChanged num poller de
@@ -219,6 +235,21 @@ are not rewritten — they are wrapped behind RAII `extern "C"` interfaces.
 
 ### Current state: M0 ✅ M1 ✅ M2 ✅ M3 ✅ M4 ✅ M5 ✅
 
+**Themes + mini-MAN (post-M5)**: themes in kew's `.theme` format (INI:
+`#rrggbb`, ANSI 0-15, -1 inherits) loaded from built-ins +
+`~/.config/kiutube/themes` + `~/.config/kew/themes` (compat with the
+kew collection; repeated ids don't override). `kiutube --themes` lists
+them with a colored preview; `--theme NAME` / `theme=` in kewrc /
+`settings.theme` in Lua select one; the **t** key cycles live. v1
+consumes: accent (header), nowplaying, textMuted, playlist.playing,
+progress.filled/empty (new progress bar on the track line) and
+viz.low/mid/high/peak (spectrum palette; the 2D spectrogram keeps the
+inferno LUT). `kiutube --help`/`-h` prints a man(1)-style mini-MAN
+(NAME, SYNOPSIS, DESCRIPTION, OPTIONS, KEYS, FILES, ENVIRONMENT,
+EXAMPLES, SEE ALSO) with bold ANSI headers (plain in pipes) in the
+LANG's language (pt/en/es/zh). Flexible CLI parsing: flags and
+subcommands in any order (`--theme gruvbox play a.flac`).
+
 **M5 — rewrite complete**: MPRIS via sdbus-c++ v2 (`sys/mpris`, own
 thread with its own event loop: Play/Pause/PlayPause/Next/Previous/Seek,
 PlaybackStatus/Metadata/Position/Volume, PropertiesChanged on a 1s
@@ -415,6 +446,13 @@ Lua) no se reescriben — se encapsulan tras wrappers RAII con `extern "C"`.
 
 ### Estado actual: M0 ✅ M1 ✅ M2 ✅ M3 ✅ M4 ✅ M5 ✅
 
+**Temas + mini-MAN (post-M5)**: temas en el formato `.theme` de kew
+(INI) cargados de built-in + `~/.config/kiutube/themes` +
+`~/.config/kew/themes`. `kiutube --themes` lista con vista previa en
+color; `--theme NOMBRE`/`theme=` elige; la tecla **t** cicla en vivo.
+`kiutube --help`/`-h` imprime un mini-MAN estilo man(1) en el idioma
+del LANG. CLI flexible: flags y subcomandos en cualquier orden.
+
 **M5 — fin de la reescritura**: MPRIS vía sdbus-c++ v2 (`sys/mpris`, hilo
 propio con event loop propio; GLib sale de nuestro link). El C legado
 (~35,5k líneas, src/) sale del repositorio — excepción deliberada: el
@@ -600,6 +638,12 @@ intérprete Lua en C++; soporte Windows/SMTC hasta nuevo aviso.
 —— 而是通过 RAII + `extern "C"` 包装。
 
 ### 当前状态：M0 ✅ M1 ✅ M2 ✅ M3 ✅ M4 ✅ M5 ✅
+
+**主题 + mini man（M5 之后）**：采用 kew 的 `.theme` 格式（INI），来源：
+内建 + `~/.config/kiutube/themes` + `~/.config/kew/themes`。`kiutube
+--themes` 彩色预览；`--theme 名称`/`theme=` 选择；**t** 键实时循环。
+`kiutube --help`/`-h` 输出 man(1) 风格 mini man，跟随 LANG 语言。
+CLI 灵活解析：标志与子命令可任意排列。
 
 **M5 —— 重写完成**：经 sdbus-c++ v2 的 MPRIS（`sys/mpris`，独立线程 +
 独立事件循环；GLib 退出我们的链接，ldd 中剩余的 glib 来自 Qt/chafa
