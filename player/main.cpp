@@ -477,7 +477,9 @@ struct Ui
                 //     row 10.
                 // ZH: 用户要求的页眉：第 1 行 = 名称+简介；第 3-4 行 = 快捷键
                 //     简明帮助；第 6-8 行 = 曲目块；可视化器从第 10 行起。
-                buf.put(1, 2, "kiutube - player de musica para terminal (reescrita C++20 do kew)",
+                buf.put(1, 2,
+                        std::string(settings.nerd_fonts ? "\xef\x80\x81 " : "") +
+                            "kiutube - player de musica para terminal (reescrita C++20 do kew)",
                         themed("accent"));
                 buf.put(3, 2, "espaco pausa/toca · n proxima · <-/-> seek +/-5s · +/- volume · l biblioteca · g "
                               "letra · F8 YouTube Music · F9 traducao",
@@ -490,7 +492,9 @@ struct Ui
                         // PT: Estado vazio: dica de uso + última tecla.
                         // EN: Empty state: usage hint + last key.
                         // ZH: 空状态：用法提示 + 最近按键。
-                        buf.put(6, 2, "play <arquivo / file / archivo / \xe6\x96\x87\xe4\xbb\xb6> ...",
+                        buf.put(6, 2,
+                                std::string(settings.nerd_fonts ? "\xef\x80\xa5 " : "") +
+                                    "play <arquivo / file / archivo / \xe6\x96\x87\xe4\xbb\xb6> ...",
                                 themed("textMuted"));
                         buf.put(7, 2, "key " + last_key);
                 }
@@ -520,8 +524,19 @@ struct Ui
                                         buf.put_cell(7, 2 + i, on ? "\xe2\x96\x88" : "\xe2\x96\x91",
                                                      tui::Color{}, tui::Color{});
                         }
-                        const std::string line = " " + mmss(shown_pos) + " / " + mmss(cur.duration) +
-                                                 (engine.is_playing() ? "  |>" : "  ||") + "  vol " +
+                        // PT: Ícones Nerd Font (Font Awesome, presente em
+                        //     toda Nerd Font) no lugar de |> / ||. Sem a
+                        //     fonte (toggle off), cai no ASCII histórico.
+                        // EN: Nerd Font icons (Font Awesome, present in
+                        //     every Nerd Font) instead of |> / ||. Without
+                        //     the font (toggle off), falls back to ASCII.
+                        // ZH: Nerd Font 图标（Font Awesome）替代 |> / ||；
+                        //     无字体（开关关闭）时回退 ASCII。
+                        const std::string sym = engine.is_playing()
+                                                    ? (settings.nerd_fonts ? " \xef\x81\x8b " : "  |>")
+                                                    : (settings.nerd_fonts ? " \xef\x81\x8c " : "  ||");
+                        const std::string line = " " + mmss(shown_pos) + " / " + mmss(cur.duration) + sym +
+                                                 "  vol " +
                                                  std::to_string(static_cast<int>(engine.volume() * 100.0f + 0.5f)) +
                                                  "%  queue " + std::to_string(engine.queue_size()) +
                                                  "  key " + last_key;
@@ -1481,6 +1496,11 @@ int main(int argc, char **argv)
                                        log_path.string());
                 }
         }
+        // PT: KIUTUBE_NERD_FONTS=1 liga os ícones sem mexer na config.
+        // EN: KIUTUBE_NERD_FONTS=1 enables icons without touching config.
+        // ZH: KIUTUBE_NERD_FONTS=1 无需改配置即可启用图标。
+        if (std::getenv("KIUTUBE_NERD_FONTS"))
+                early_settings.nerd_fonts = true;
         sys::Mpris mpris(engine); // PT: thread própria; dtor junta antes do engine / own thread; joins before the engine
         if (want_play)
         {

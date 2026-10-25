@@ -61,6 +61,7 @@ janela gráfica (Qt) e MPRIS. A reescrita está completa
 | Config em Lua | `~/.config/kiutube/init.lua` |
 | Temas (.theme do kew) | `kiutube --themes` prevê, `--theme NOME` aplica, **t** cicla ao vivo |
 | Mini-MAN | `kiutube --help` (idioma do `LANG`) |
+| Ícones Nerd Font | `settings.nerd_fonts = true` no init.lua (ou `KIUTUBE_NERD_FONTS=1`) |
 | CLI headless | `kiutube --ytm search|play|lyrics ...` |
 
 ### Instalar via GitHub
@@ -127,6 +128,7 @@ repository). Roadmap in
 | Lua config | `~/.config/kiutube/init.lua` |
 | Themes (kew .theme) | `kiutube --themes` previews, `--theme NAME` applies, **t** cycles live |
 | Mini-MAN | `kiutube --help` (in your `LANG`) |
+| Nerd Font icons | `settings.nerd_fonts = true` in init.lua (or `KIUTUBE_NERD_FONTS=1`) |
 | Headless CLI | `kiutube --ytm search|play|lyrics ...` |
 
 ### Installing from GitHub
@@ -193,6 +195,7 @@ FFT, ventana gráfica (Qt) y MPRIS. La reescritura está completa
 | Config en Lua | `~/.config/kiutube/init.lua` |
 | Temas (.theme de kew) | `kiutube --themes` con vista previa, `--theme NOMBRE`, **t** cicla |
 | Mini-MAN | `kiutube --help` (idioma del `LANG`) |
+| Íconos Nerd Font | `settings.nerd_fonts = true` en init.lua (o `KIUTUBE_NERD_FONTS=1`) |
 | CLI headless | `kiutube --ytm search|play|lyrics ...` |
 
 ### Instalar desde GitHub
@@ -257,6 +260,7 @@ LRCLIB 同步歌词与自动翻译、曲库模糊搜索、FFT 可视化器、图
 | Lua 配置 | `~/.config/kiutube/init.lua` |
 | 主题（kew .theme） | `kiutube --themes` 预览，`--theme 名称` 应用，**t** 实时循环 |
 | Mini man | `kiutube --help`（跟随 `LANG`） |
+| Nerd Font 图标 | init.lua 中 `settings.nerd_fonts = true`（或 `KIUTUBE_NERD_FONTS=1`） |
 | 无头 CLI | `kiutube --ytm search|play|lyrics ...` |
 
 ### 从 GitHub 安装

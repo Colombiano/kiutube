@@ -58,6 +58,7 @@ struct Settings
         bool visualizer = true;     // kewrc: visualizer=
         bool translation = true;    // PT: traduzir letras p/ PT (F9 alterna) / translate lyrics (F9 toggles) / 歌词翻译（F9 切换）
         std::string theme = "default"; // PT: tema .theme do kew (kewrc: theme=, --theme) / kew .theme name / 主题名
+        bool nerd_fonts = false;    // PT: ícones Nerd Font (glifos PUA) no lugar de ASCII / Nerd Font icons / Nerd Font 图标
 };
 
 // PT: Descritor tipado: nome de config + ponteiro-para-membro.
@@ -86,6 +87,7 @@ inline constexpr auto kSettingsDescs = std::tuple{
     SettingDesc<bool>{.name = "visualizer", .member = &Settings::visualizer},
     SettingDesc<bool>{.name = "translation", .member = &Settings::translation},
     SettingDesc<std::string>{.name = "theme", .member = &Settings::theme},
+    SettingDesc<bool>{.name = "nerd_fonts", .member = &Settings::nerd_fonts},
 };
 
 // PT: Aplica F(desc) para cada descritor em compile-time.
