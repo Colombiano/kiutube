@@ -465,19 +465,38 @@ struct Ui
                 }
 
                 buf.clear();
-                buf.put(1, 2, "kiutube", themed("accent"));
+                // PT: Cabeçalho pedido pelo usuário: linha 1 = nome+descrição;
+                //     linhas 3-4 = ajuda curta das teclas (PT completo na 3,
+                //     restante do PT + EN na 4 — ES/ZH no `kiutube --help`);
+                //     linhas 6-8 = o bloco da faixa (título, barra+tempos,
+                //     config); visualizador a partir da linha 10.
+                // EN: User-requested header: line 1 = name+tagline; lines
+                //     3-4 = short key help (full PT on 3, rest of PT + EN on
+                //     4 — ES/ZH in `kiutube --help`); lines 6-8 = the track
+                //     block (title, bar+times, config); visualizer from
+                //     row 10.
+                // ZH: 用户要求的页眉：第 1 行 = 名称+简介；第 3-4 行 = 快捷键
+                //     简明帮助；第 6-8 行 = 曲目块；可视化器从第 10 行起。
+                buf.put(1, 2, "kiutube - player de musica para terminal (reescrita C++20 do kew)",
+                        themed("accent"));
+                buf.put(3, 2, "espaco pausa/toca · n proxima · <-/-> seek +/-5s · +/- volume · l biblioteca · g "
+                              "letra · F8 YouTube Music · F9 traducao",
+                        themed("textMuted"));
+                buf.put(4, 2, "v visualizador · p fila · i faixa · c capa · t tema · q sai | space pause · n next · "
+                              "l library · g lyrics · F8 YTM · v viz · p queue · c cover · t theme · q quit",
+                        themed("textMuted"));
                 if (cur.path.empty())
                 {
                         // PT: Estado vazio: dica de uso + última tecla.
                         // EN: Empty state: usage hint + last key.
                         // ZH: 空状态：用法提示 + 最近按键。
-                        buf.put(2, 2, "play <arquivo / file / archivo / \xe6\x96\x87\xe4\xbb\xb6> ...   keys: l/g/v/p/i/c/t",
+                        buf.put(6, 2, "play <arquivo / file / archivo / \xe6\x96\x87\xe4\xbb\xb6> ...",
                                 themed("textMuted"));
-                        buf.put(3, 2, "key " + last_key);
+                        buf.put(7, 2, "key " + last_key);
                 }
                 else
                 {
-                        buf.put(2, 2, cur.title, themed("nowplaying"));
+                        buf.put(6, 2, cur.title, themed("nowplaying"));
                         const auto shown_pos = std::min(pos, cur.duration);
                         // PT: Barra de progresso com largura adaptativa
                         //     (cols/4, 10..30) + tempos. Cores
@@ -496,9 +515,9 @@ struct Ui
                         {
                                 const bool on = i < static_cast<int>(frac * bw + 0.5);
                                 if (filled.set && empty.set)
-                                        buf.put_cell(3, 2 + i, " ", tui::Color{}, on ? filled : empty);
+                                        buf.put_cell(7, 2 + i, " ", tui::Color{}, on ? filled : empty);
                                 else
-                                        buf.put_cell(3, 2 + i, on ? "\xe2\x96\x88" : "\xe2\x96\x91",
+                                        buf.put_cell(7, 2 + i, on ? "\xe2\x96\x88" : "\xe2\x96\x91",
                                                      tui::Color{}, tui::Color{});
                         }
                         const std::string line = " " + mmss(shown_pos) + " / " + mmss(cur.duration) +
@@ -506,28 +525,27 @@ struct Ui
                                                  std::to_string(static_cast<int>(engine.volume() * 100.0f + 0.5f)) +
                                                  "%  queue " + std::to_string(engine.queue_size()) +
                                                  "  key " + last_key;
-                        buf.put(3, 2 + bw + 1, line, themed("text"));
+                        buf.put(7, 2 + bw + 1, line, themed("text"));
                 }
                 std::string cfg = "volume=" + std::to_string(settings.volume) + " shuffle=" +
                                   (settings.shuffle ? "on" : "off") + " visualizer=" +
                                   (settings.visualizer ? "on" : "off") +
                                   (tracks ? " lib=" + std::to_string(tracks->size()) : "") +
                                   " theme=" + (theme ? theme->id : "default");
-                buf.put(4, 2, cfg, themed("textMuted"));
+                buf.put(8, 2, cfg, themed("textMuted"));
 
-                // PT: Área do visualizador: do fim do cabeçalho compacto
-                //     (row 6) até a penúltima linha — adaptativa ao tamanho
-                //     do terminal. settings.visualizer=off força o modo
-                //     Off. Capa ativa toma a área (painéis/pickers
-                //     desenham por cima quando abertos).
-                // EN: Visualizer area: from the compact header's end
-                //     (row 6) to the penultimate line — adaptive to the
-                //     terminal size. settings.visualizer=off forces Off.
+                // PT: Área do visualizador: a partir da linha 10 (após o
+                //     cabeçalho com ajuda de teclas) até a penúltima linha —
+                //     adaptativa ao tamanho do terminal. settings.visualizer
+                //     = off força o modo Off. Capa ativa toma a área
+                //     (painéis/pickers desenham por cima quando abertos).
+                // EN: Visualizer area: from row 10 (after the header with
+                //     key help) to the penultimate line — adaptive to the
+                //     terminal size. settings.visualizer = off forces Off.
                 //     An active cover takes the area (panes/pickers draw
                 //     over it when open).
-                // ZH: 可视化器区域：从紧凑页眉结束（第 6 行）到倒数第二行
-                //     —— 随终端尺寸自适应。封面激活时占用该区域（面板/
-                //     选择器打开时绘制在上层）。
+                // ZH: 可视化器区域：从第 10 行（含快捷键帮助的页眉之后）到
+                //     倒数第二行 —— 随终端尺寸自适应。封面激活时占用该区域。
                 if (!settings.visualizer && viz.mode() != viz::Mode::Off)
                         viz.set_mode(viz::Mode::Off);
                 if (cover.active)
@@ -536,7 +554,7 @@ struct Ui
                         draw_cover();
                 }
                 else if (!gui_open && viz.mode() != viz::Mode::Off)
-                        viz.draw(buf, 6, 2, std::max(3, buf.rows() - 8), buf.cols() - 4);
+                        viz.draw(buf, 10, 2, std::max(3, buf.rows() - 12), buf.cols() - 4);
 
                 if (picker.active && (picker.source == PickerSource::Ytm || tracks))
                         draw_picker();
@@ -919,17 +937,22 @@ krt::Task<void> app_main(audio::Engine &engine, Ui &ui, std::atomic<bool> &alive
         script::LuaState lua;
         lua.open_config((app::config_dir("kiutube") / "init.lua").string(), settings, map);
         ui.settings = settings;
-        // PT: Visualizador ligado por padrão quando settings.visualizer
-        //     (era preciso apertar 'v' antes). Espelha na janela gráfica.
-        // EN: Visualizer on by default when settings.visualizer (it used
-        //     to require pressing 'v'). Mirrored on the GUI window.
-        // ZH: settings.visualizer 开启时默认启用可视化器（原先需按 'v'）。
-        //     同步到图形窗口。
+        // PT: Visualizador da TUI ligado por padrão quando settings.visualizer
+        //     (era preciso apertar 'v' antes). NÃO espelha na janela gráfica:
+        //     vizwin.set_mode(Spectrum) ABRIRIA a janela Qt (show()) e a
+        //     TUI suspenderia o próprio viz — área vazia. A janela continua
+        //     abrindo só pelo ciclo da tecla 'v' (desenho M4).
+        // EN: TUI visualizer on by default when settings.visualizer (it
+        //     used to require 'v'). NOT mirrored to the GUI window:
+        //     vizwin.set_mode(Spectrum) would OPEN the Qt window (show())
+        //     and the TUI would suspend its own viz — an empty area. The
+        //     window still opens only via the 'v' cycle (M4 design).
+        // ZH: settings.visualizer 开启时默认启用 TUI 可视化器（原先需按
+        //     'v'）。不同步到图形窗口：vizwin.set_mode(Spectrum) 会打开 Qt
+        //     窗口（show()）导致 TUI 暂停自身 viz —— 区域空白。窗口仍仅由
+        //     'v' 键循环打开（M4 设计）。
         if (settings.visualizer && ui.viz.mode() == viz::Mode::Off)
-        {
                 ui.viz.set_mode(viz::Mode::Spectrum);
-                ui.vizwin.set_mode(viz::Mode::Spectrum);
-        }
 
         // PT: Scan da biblioteca em offload (I/O) antes de entrar no loop.
         // EN: Library scan offloaded (I/O) before entering the loop.
