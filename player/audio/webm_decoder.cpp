@@ -105,7 +105,13 @@ std::size_t WebmDecoder::read(std::span<float> out)
                 impl_->eof = true;
                 return 0;
         }
-        if (frames_read < frames_wanted)
+        // PT: leitura PARCIAL não é EOF (mesma regra do MaDecoder: o shim
+        //     devolve blocos granulares no meio da faixa). Só 0 = fim.
+        // EN: a PARTIAL read is NOT EOF (same rule as MaDecoder: the shim
+        //     returns granular blocks mid-stream). Only 0 marks the end.
+        // ZH: 部分读取不是 EOF（与 MaDecoder 同规则：shim 按块返回）。只有
+        //     0 帧才是结束。
+        if (frames_read == 0)
                 impl_->eof = true;
         return static_cast<std::size_t>(frames_read);
 }

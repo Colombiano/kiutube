@@ -153,13 +153,26 @@ struct Engine::Impl
                         pos_us.store(pos_us.load() + static_cast<long long>(n / 2) * 1'000'000 / dev_rate,
                                      std::memory_order_relaxed);
                 }
-                if (n < total || g0 != gen.load(std::memory_order_acquire))
+                // PT: Underrun PARCIAL preserva o que foi copiado: zera só o
+                //     restante (out+n .. total). Zeroar tudo apagava amostras
+                //     reais já entregues — dropout audível mesmo com ring
+                //     alimentado. Gen em vo = seek/next: silêncio total (as
+                //     amostras copiadas podem ser de antes do seek).
+                // EN: a PARTIAL underrun preserves what was copied: zero only
+                //     the remainder (out+n .. total). Zeroing everything
+                //     erased real samples already delivered — an audible
+                //     dropout even with a fed ring. In-flight gen = seek/
+                //     next: full silence (copied samples may predate it).
+                // ZH: 部分 underrun 保留已拷贝的内容：只清零剩余部分
+                //     （out+n .. total）。全部清零会抹掉已交付的真实采样；
+                //     gen 进行中（seek/next）则全静音。
+                const bool gen_ok = g0 == gen.load(std::memory_order_acquire);
+                if (n < total || !gen_ok)
                 {
-                        // PT: Underrun OU seek/next em vo: silêncio neste callback.
-                        // EN: Underrun OR in-flight seek/next: silence this callback.
-                        // ES: Underrun O seek/next en vuelo: silencio en este callback.
-                        // ZH: underrun 或进行中的 seek/next：本次回调输出静音。
-                        std::memset(out, 0, total * sizeof(float));
+                        if (gen_ok)
+                                std::memset(out + n, 0, (total - n) * sizeof(float));
+                        else
+                                std::memset(out, 0, total * sizeof(float));
                         if (n < total)
                                 underruns.fetch_add(1, std::memory_order_relaxed);
                 }
@@ -285,7 +298,23 @@ struct Engine::Impl
                                 has_dec = false;
                         }
                 }
-                wr.store(w + produced, std::memory_order_release);
+                // PT: rd/wr contam FLOATS interleaved (2 por frame) — o
+                //     consume copia samples, não frames. produced é em
+                //     FRAMES: avançar wr exige ×2. Bug histórico: sem o ×2 o
+                //     ring parecia ter o dobro de espaço, o feeder
+                //     sobrescrevia trechos não tocados (música "pulada",
+                //     acelerada e ruim) e a faixa morria ~2× antes.
+                // EN: rd/wr count INTERLEAVED floats (2 per frame) — the
+                //     consume copies samples, not frames. produced is in
+                //     FRAMES: advancing wr needs ×2. Historical bug: without
+                //     it the ring seemed to have 2× space, the feeder
+                //     overwrote unplayed sections (music "skipping", fast
+                //     and bad sounding) and the track ended ~2× early.
+                // ZH: rd/wr 按交错 float 计数（每帧 2 个）——consume 拷贝的是
+                //     采样而非帧。produced 以帧为单位：wr 必须 ×2。历史 bug：
+                //     缺少 ×2 时 ring 看似有双倍空间，feeder 覆写未播放的
+                //     段落（音乐"跳段"、变快且音质差），曲目提前约一半结束。
+                wr.store(w + produced * 2, std::memory_order_release);
                 return true;
         }
 };

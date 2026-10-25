@@ -88,17 +88,23 @@ int main()
         check(!info.title.empty(), "titulo / title / título / 标题");
         check(info.duration >= 900ms && info.duration <= 1100ms, "duracao ~1s / duration ~1s / duración ~1s / 时长约 1 秒");
 
-        // PT: Lê tudo: 1s reamostrado para 48k => ~48000 frames (tolerância ±200).
-        // EN: Reads everything: 1s resampled to 48k => ~48000 frames (±200 tolerance).
-        // ES: Lee todo: 1s remuestreado a 48k => ~48000 frames (tolerancia ±200).
-        // ZH: 全部读完：重采样到 48k 的 1 秒 ≈ 48000 帧（容差 ±200）。
+        // PT: Lê tudo: 1s reamostrado para 48k => ~48000 frames (tolerância
+        //     ±200). EOF só com read == 0 — leituras PARCIAIS são normais no
+        //     meio da faixa (granularidade do resampler); tratar parcial
+        //     como EOF cortava a faixa no player ("acelerada e ruim").
+        // EN: Reads everything: 1s resampled to 48k => ~48000 frames (±200).
+        //     EOF is a read of 0 — PARTIAL reads are normal mid-stream
+        //     (resampler granularity); treating a partial read as EOF cut
+        //     tracks short in the player ("fast and bad sounding").
+        // ZH: 全部读完：重采样到 48k 的 1 秒 ≈ 48000 帧（容差 ±200）。EOF
+        //     以 read == 0 为准——中途的部分读取是正常的（重采样器粒度）。
         std::vector<float> chunk(8192 * 2);
         std::size_t total = 0;
         for (int guard = 0; guard < 64; ++guard)
         {
                 const std::size_t n = dec.read(chunk);
                 total += n;
-                if (n < chunk.size() / 2)
+                if (n == 0) // PT: só 0 é fim de faixa / EN: only 0 is EOF / ZH: 只有 0 才是曲目结束
                         break;
         }
         check(total >= 47800 && total <= 48200, "total de frames ~48000 / frames ~48000 / frames ~48000 / 帧数约 48000");

@@ -69,8 +69,18 @@ std::size_t MaDecoder::read(std::span<float> out)
                 impl_->eof = true;
                 return 0;
         }
-        if (frames_read < frames_wanted)
-                impl_->eof = true; // parcial = fim da faixa
+        // PT: leitura PARCIAL não é EOF — o miniaudio devolve menos frames
+        //     que o pedido no meio da faixa (granularidade do resampler/
+        //     backend). Só 0 frames marca fim; marcar parcial como EOF
+        //     cortava a faixa a ~1,5s ("acelerada e ruim").
+        // EN: a PARTIAL read is NOT EOF — miniaudio returns fewer frames
+        //     than requested mid-stream (resampler/backend granularity).
+        //     Only 0 frames marks the end; treating a partial read as EOF
+        //     cut tracks short at ~1.5s ("fast and bad sounding").
+        // ZH: 部分读取不是 EOF —— miniaudio 会按重采样器/后端粒度在曲目
+        //     中途返回少于请求的帧数；只有 0 帧才标记结束。
+        if (frames_read == 0)
+                impl_->eof = true;
         return static_cast<std::size_t>(frames_read);
 }
 
