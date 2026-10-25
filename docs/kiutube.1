@@ -1,0 +1,85 @@
+.TH KIUTUBE 1 "Outubro 2026" "kiutube" "Comandos do usuário"
+.SH NAME
+kiutube \- player de música para terminal (reescrita C++20 do kew)
+.SH SYNOPSIS
+.B kiutube
+.RI [ opções ]
+.RI [ play " arquivo" ...]
+.SH DESCRIPTION
+.B kiutube
+toca música local (wav/mp3/flac/webm) com engine gapless, biblioteca fuzzy,
+letras LRCLIB com tradução automática, YouTube Music via yt-dlp,
+visualizadores FFT (TUI e janela Qt), capa de álbum (chafa/Qt) e MPRIS.
+.PP
+Sem argumentos, abre a TUI. As flags e subcomandos podem vir em qualquer
+ordem (\fBkiutube --theme gruvbox play a.flac\fR é válido). Conteúdo
+localizado do manual: \fBkiutube --help\fR (pt/en/es/zh conforme o LANG).
+.SH OPTIONS
+.TP
+.BR \-\-help ", " \-h
+Imprime o mini-MAN completo (idioma do LANG) e sai.
+.TP
+.B \-\-themes
+Lista os temas disponíveis com prévia colorida e sai.
+.TP
+.BI \-\-theme " NOME"
+Abre usando o tema NOME (arquivo .theme do kew; veja FILES).
+.TP
+.BI \-\-ytm " search " \fI"busca"
+Busca no YouTube Music (yt-dlp), lista os resultados e sai.
+.TP
+.BI \-\-ytm " play " \fI"busca"
+Baixa o 1º resultado e abre o TUI tocando.
+.TP
+.BI play " arquivo" ...
+Toca os arquivos dados. \fB--\fR separa flags de nomes que comecem com \-\-.
+.SH KEYS (TUI)
+.TP
+.BR espaço ", " n ", " setas ", " +/\-
+Pausa/toca, próxima faixa, seek ±5s, volume.
+.TP
+.BR l ", " g ", " F8 ", " F9
+Biblioteca (picker fuzzy), letra LRCLIB, busca YouTube Music, alterna
+letra original/traduzida.
+.TP
+.BR v ", " p ", " i ", " c ", " t ", " q
+Visualizador (TUI/Qt), fila, detalhe da faixa, capa, cicla temas, sai.
+.SH FILES
+.TP
+.I ~/.config/kiutube/init.lua
+Configuração Lua (settings + bind).
+.TP
+.I ~/.config/kew/kewrc
+Compatibilidade: path=, volume=, visualizer=, shuffle=, theme=.
+.TP
+.I ~/.config/kiutube/themes/
+Temas próprios (*.theme).
+.TP
+.I ~/.config/kew/themes/
+Temas do kew reaproveitados.
+.TP
+.I ~/.cache/kiutube/streams/
+Downloads do YouTube Music.
+.SH ENVIRONMENT
+.TP
+.BI KIUTUBE2_LOG= debug | info | warn | error
+Nível de log no stderr (padrão warn).
+.TP
+.B KIUTUBE_NO_GUI=1
+Desativa a janela gráfica Qt dos visualizadores.
+.SH EXAMPLES
+.TP
+.B kiutube play ~/musica/album/*.flac
+Toca um álbum.
+.TP
+.B kiutube --ytm play "Transa Caetano Veloso"
+Baixa e toca via YouTube Music.
+.TP
+.B kiutube --theme gruvbox
+Abre no tema gruvbox.
+.SH EXIT STATUS
+0 em sucesso; 2 em erro de uso; 1 em falhas (áudio, download, config).
+.SH SEE ALSO
+Repositório: https://github.com/Colombiano/kiutube
+.br
+docs/CPP20-REWRITE.md (roadmap/arquitetura), README-YTM.md (camada ytm).

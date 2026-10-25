@@ -325,3 +325,12 @@ if(CHafa_FOUND)
   target_link_libraries(canvas_smoke PRIVATE PkgConfig::CHafa)
 endif()
 add_test(NAME canvas_smoke COMMAND canvas_smoke)
+
+# PT: Instalação: binário e man page (troff em docs/kiutube.1).
+#     `cmake --install build --prefix /usr/local` (ou o prefixo do usuário).
+# EN: Install: binary and man page (troff at docs/kiutube.1).
+#     `cmake --install build --prefix /usr/local` (or a user prefix).
+# ES: Instalación: binario y página de manual.
+# ZH: 安装：二进制与 man page（troff 位于 docs/kiutube.1）。
+install(TARGETS kiutube RUNTIME DESTINATION bin)
+install(FILES docs/kiutube.1 DESTINATION share/man/man1)

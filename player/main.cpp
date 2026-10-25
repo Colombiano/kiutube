@@ -1403,7 +1403,15 @@ int main(int argc, char **argv)
                         want_play = true;
                 else if (a == "--ytm" && i + 1 < argc)
                 {
-                        const int rc = cli_ytm(argc - i, argv + i, engine);
+                        // PT: cli_ytm espera o argv COMPLETO (argv[1] ==
+                        //     "--ytm", argv[2] = subcomando): repassa com
+                        //     argv[0] real — argv+i-1 / argc-i+1.
+                        // EN: cli_ytm expects the FULL argv (argv[1] ==
+                        //     "--ytm", argv[2] = subcommand): pass it with
+                        //     the real argv[0] — argv+i-1 / argc-i+1.
+                        // ZH: cli_ytm 期望完整 argv（argv[1]=="--ytm"）：
+                        //     用 argv+i-1 / argc-i+1 传真实 argv[0]。
+                        const int rc = cli_ytm(argc - i + 1, argv + i - 1, engine);
                         if (rc >= 0)
                                 return rc; // PT: search/erro: sai; play cai no TUI abaixo
                 }

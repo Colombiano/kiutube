@@ -81,9 +81,11 @@ sudo apt install build-essential cmake git pkg-config \
 cmake -B build && cmake --build build -j$(nproc)
 ctest --test-dir build          # opcional: smoke tests
 
-# 4. Usar (ou instalar no PATH)
+# 4. Usar (ou instalar no PATH + man page)
 ./build/kiutube play ~/musica/faixa.flac
 sudo install -m 0755 build/kiutube /usr/local/bin/kiutube
+sudo install -m 0644 docs/kiutube.1 /usr/local/share/man/man1/kiutube.1
+# (ou tudo de uma vez: sudo cmake --install build)
 ```
 
 Opcionais detectados no configure: Qt 6 Widgets (janela gráfica dos
@@ -145,9 +147,11 @@ sudo apt install build-essential cmake git pkg-config \
 cmake -B build && cmake --build build -j$(nproc)
 ctest --test-dir build          # optional: smoke tests
 
-# 4. Run (or install to PATH)
+# 4. Run (or install to PATH + man page)
 ./build/kiutube play ~/music/track.flac
 sudo install -m 0755 build/kiutube /usr/local/bin/kiutube
+sudo install -m 0644 docs/kiutube.1 /usr/local/share/man/man1/kiutube.1
+# (or everything at once: sudo cmake --install build)
 ```
 
 Optional, detected at configure time: Qt 6 Widgets (the visualizer GUI
@@ -209,9 +213,11 @@ sudo apt install build-essential cmake git pkg-config \
 cmake -B build && cmake --build build -j$(nproc)
 ctest --test-dir build          # opcional: smoke tests
 
-# 4. Usar (o instalar en el PATH)
+# 4. Usar (o instalar en el PATH + página man)
 ./build/kiutube play ~/musica/pista.flac
 sudo install -m 0755 build/kiutube /usr/local/bin/kiutube
+sudo install -m 0644 docs/kiutube.1 /usr/local/share/man/man1/kiutube.1
+# (o todo junto: sudo cmake --install build)
 ```
 
 Opcionales, detectados en el configure: Qt 6 Widgets (ventana gráfica de
@@ -271,9 +277,11 @@ sudo apt install build-essential cmake git pkg-config \
 cmake -B build && cmake --build build -j$(nproc)
 ctest --test-dir build          # 可选：冒烟测试
 
-# 4. 运行（或安装到 PATH）
+# 4. 运行（或安装到 PATH + man page）
 ./build/kiutube play ~/music/track.flac
 sudo install -m 0755 build/kiutube /usr/local/bin/kiutube
+sudo install -m 0644 docs/kiutube.1 /usr/local/share/man/man1/kiutube.1
+#（或一次完成：sudo cmake --install build）
 ```
 
 可选项（configure 时自动检测）：Qt 6 Widgets（可视化器图形窗口）与
