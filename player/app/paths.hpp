@@ -32,4 +32,22 @@ inline std::filesystem::path config_dir(const char *app_name)
         return dir;
 }
 
+// PT: <xdg cache>/<app>/, criando se preciso (logs, streams, capas).
+// EN: <xdg cache>/<app>/, creating if needed (logs, streams, covers).
+// ES: <xdg cache>/<app>/, creando si hace falta. / ZH: <xdg cache>/<app>/，必要时创建。
+inline std::filesystem::path cache_dir(const char *app_name)
+{
+        std::filesystem::path base;
+        if (const char *xdg = std::getenv("XDG_CACHE_HOME"); xdg && *xdg)
+                base = xdg;
+        else if (const char *home = std::getenv("HOME"); home && *home)
+                base = std::filesystem::path(home) / ".cache";
+        else
+                base = ".";
+        const auto dir = base / app_name;
+        std::error_code ec;
+        std::filesystem::create_directories(dir, ec);
+        return dir;
+}
+
 } // namespace app

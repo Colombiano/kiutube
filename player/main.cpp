@@ -465,63 +465,69 @@ struct Ui
                 }
 
                 buf.clear();
-                buf.put(1, 2, "kiutube - M3+viz / PT / EN / ES / ZH", themed("accent"));
-                buf.put(3, 2, "PT: biblioteca fuzzy + letras + visualizadores", themed("textMuted"));
-                buf.put(4, 2, "EN: fuzzy library + lyrics + visualizers", themed("textMuted"));
-                buf.put(5, 2, "ES: biblioteca fuzzy + letras + visualizadores", themed("textMuted"));
-                buf.put(6, 2, "ZH: \xe6\xa8\xa1\xe7\xb3\x8a\xe6\x90\x9c\xe7\xb4\xa2 + \xe6\xad\x8c\xe8\xaf\x8d + \xe5\x8f\xaf\xe8\xa7\x86\xe5\x8c\x96", themed("textMuted"));
+                buf.put(1, 2, "kiutube", themed("accent"));
                 if (cur.path.empty())
                 {
-                        buf.put(8, 2, "kiutube play <arquivo / file / archivo / \xe6\x96\x87\xe4\xbb\xb6> ...   keys: l/g/v/p/i/c/t");
-                        buf.put(9, 2, "key " + last_key);
+                        // PT: Estado vazio: dica de uso + última tecla.
+                        // EN: Empty state: usage hint + last key.
+                        // ZH: 空状态：用法提示 + 最近按键。
+                        buf.put(2, 2, "play <arquivo / file / archivo / \xe6\x96\x87\xe4\xbb\xb6> ...   keys: l/g/v/p/i/c/t",
+                                themed("textMuted"));
+                        buf.put(3, 2, "key " + last_key);
                 }
                 else
                 {
-                        buf.put(8, 2, cur.title, themed("nowplaying"));
+                        buf.put(2, 2, cur.title, themed("nowplaying"));
                         const auto shown_pos = std::min(pos, cur.duration);
-                        // PT: Barra de progresso (16 células, cores
-                        //     progress.filled/empty do tema) + tempos.
-                        // EN: Progress bar (16 cells, theme's
-                        //     progress.filled/empty colors) + times.
-                        // ZH: 进度条（16 格，主题 progress.filled/empty 色）+ 时间。
+                        // PT: Barra de progresso com largura adaptativa
+                        //     (cols/4, 10..30) + tempos. Cores
+                        //     progress.filled/empty do tema.
+                        // EN: Progress bar with adaptive width (cols/4,
+                        //     10..30) + times. Theme progress colors.
+                        // ZH: 进度条宽度自适应（cols/4，10..30）+ 时间；
+                        //     颜色取主题 progress.filled/empty。
                         const double frac = cur.duration.count() > 0
                                                 ? static_cast<double>(shown_pos.count()) / cur.duration.count()
                                                 : 0.0;
+                        const int bw = std::clamp(buf.cols() / 4, 10, 30);
                         const auto filled = themed("progress.filled");
                         const auto empty = themed("progress.empty");
-                        for (int i = 0; i < 16; ++i)
+                        for (int i = 0; i < bw; ++i)
                         {
-                                const bool on = i < static_cast<int>(frac * 16.0 + 0.5);
+                                const bool on = i < static_cast<int>(frac * bw + 0.5);
                                 if (filled.set && empty.set)
-                                        buf.put_cell(9, 2 + i, " ", tui::Color{}, on ? filled : empty);
+                                        buf.put_cell(3, 2 + i, " ", tui::Color{}, on ? filled : empty);
                                 else
-                                        buf.put_cell(9, 2 + i, on ? "\xe2\x96\x88" : "\xe2\x96\x91", tui::Color{},
-                                                     tui::Color{});
+                                        buf.put_cell(3, 2 + i, on ? "\xe2\x96\x88" : "\xe2\x96\x91",
+                                                     tui::Color{}, tui::Color{});
                         }
                         const std::string line = " " + mmss(shown_pos) + " / " + mmss(cur.duration) +
                                                  (engine.is_playing() ? "  |>" : "  ||") + "  vol " +
                                                  std::to_string(static_cast<int>(engine.volume() * 100.0f + 0.5f)) +
                                                  "%  queue " + std::to_string(engine.queue_size()) +
                                                  "  key " + last_key;
-                        buf.put(9, 19, line, themed("text"));
+                        buf.put(3, 2 + bw + 1, line, themed("text"));
                 }
                 std::string cfg = "volume=" + std::to_string(settings.volume) + " shuffle=" +
                                   (settings.shuffle ? "on" : "off") + " visualizer=" +
                                   (settings.visualizer ? "on" : "off") +
                                   (tracks ? " lib=" + std::to_string(tracks->size()) : "") +
                                   " theme=" + (theme ? theme->id : "default");
-                buf.put(11, 2, cfg, themed("textMuted"));
+                buf.put(4, 2, cfg, themed("textMuted"));
 
-                // PT: Área do visualizador (rows 13..19). settings.visualizer
-                //     = off força o modo Off. Capa ativa toma a área (só um
-                //     consumidor de pixels por vez na prática: capa é estática).
-                // EN: Visualizer area (rows 13..19). settings.visualizer = off
-                //     forces Mode::Off. An active cover takes the area (only
-                //     one pixel consumer at a time in practice: covers are
-                //     static).
-                // ES: Área del visualizador (filas 13..19). La carátula activa
-                //     toma el área.
-                // ZH: 可视化器区域（第 13..19 行）。封面激活时占用该区域。
+                // PT: Área do visualizador: do fim do cabeçalho compacto
+                //     (row 6) até a penúltima linha — adaptativa ao tamanho
+                //     do terminal. settings.visualizer=off força o modo
+                //     Off. Capa ativa toma a área (painéis/pickers
+                //     desenham por cima quando abertos).
+                // EN: Visualizer area: from the compact header's end
+                //     (row 6) to the penultimate line — adaptive to the
+                //     terminal size. settings.visualizer=off forces Off.
+                //     An active cover takes the area (panes/pickers draw
+                //     over it when open).
+                // ZH: 可视化器区域：从紧凑页眉结束（第 6 行）到倒数第二行
+                //     —— 随终端尺寸自适应。封面激活时占用该区域（面板/
+                //     选择器打开时绘制在上层）。
                 if (!settings.visualizer && viz.mode() != viz::Mode::Off)
                         viz.set_mode(viz::Mode::Off);
                 if (cover.active)
@@ -530,7 +536,7 @@ struct Ui
                         draw_cover();
                 }
                 else if (!gui_open && viz.mode() != viz::Mode::Off)
-                        viz.draw(buf, 13, 2, 7, buf.cols() - 4);
+                        viz.draw(buf, 6, 2, std::max(3, buf.rows() - 8), buf.cols() - 4);
 
                 if (picker.active && (picker.source == PickerSource::Ytm || tracks))
                         draw_picker();
@@ -811,10 +817,12 @@ krt::Task<void> ytm_search_task(std::string query, Picker &picker)
         }
 }
 
-// PT: Sanitiza nome de arquivo (mesmo jogo do sanitize do ytm: ASCII seguro).
-// EN: Sanitizes a filename (same game as ytm's sanitize: safe ASCII).
-// ES: Sanitiza nombre de archivo (mismo juego que el sanitize de ytm).
-// ZH: 文件名清理（与 ytm 的 sanitize 相同：安全 ASCII）。
+// PT: Sanitiza nome de arquivo (mesmo jogo do sanitize do ytm: ASCII seguro),
+//     mas PRESERVA bytes UTF-8 (acentos, CJK) — antes "Álbum" virava "_lbum".
+// EN: Sanitizes a filename (same game as ytm's sanitize: safe ASCII) but
+//     PRESERVES UTF-8 bytes (accents, CJK) — "Álbum" used to become "_lbum".
+// ES: Sanitiza nombre de archivo, pero PRESERVA UTF-8.
+// ZH: 文件名清理（与 ytm 相同：安全 ASCII），但保留 UTF-8 字节（重音、CJK）。
 std::string sanitize_filename(const std::string &in)
 {
         std::string out;
@@ -822,7 +830,7 @@ std::string sanitize_filename(const std::string &in)
         {
                 const bool ok = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
                                 (c >= '0' && c <= '9') || c == ' ' || c == '-' || c == '_' || c == '(' || c == ')' ||
-                                c == '[' || c == ']' || c == '.';
+                                c == '[' || c == ']' || c == '.' || static_cast<unsigned char>(c) >= 0x80;
                 out += ok ? c : '_';
         }
         return out;
@@ -911,6 +919,17 @@ krt::Task<void> app_main(audio::Engine &engine, Ui &ui, std::atomic<bool> &alive
         script::LuaState lua;
         lua.open_config((app::config_dir("kiutube") / "init.lua").string(), settings, map);
         ui.settings = settings;
+        // PT: Visualizador ligado por padrão quando settings.visualizer
+        //     (era preciso apertar 'v' antes). Espelha na janela gráfica.
+        // EN: Visualizer on by default when settings.visualizer (it used
+        //     to require pressing 'v'). Mirrored on the GUI window.
+        // ZH: settings.visualizer 开启时默认启用可视化器（原先需按 'v'）。
+        //     同步到图形窗口。
+        if (settings.visualizer && ui.viz.mode() == viz::Mode::Off)
+        {
+                ui.viz.set_mode(viz::Mode::Spectrum);
+                ui.vizwin.set_mode(viz::Mode::Spectrum);
+        }
 
         // PT: Scan da biblioteca em offload (I/O) antes de entrar no loop.
         // EN: Library scan offloaded (I/O) before entering the loop.
@@ -1417,6 +1436,27 @@ int main(int argc, char **argv)
                 }
                 else if (want_play)
                         play_files.emplace_back(argv[i]);
+        }
+        // PT: stderr é TTY (TUI a seguir): logs do krt E warnings de
+        //     bibliotecas (Qt/gtk) vão para arquivo — escrever no stderr
+        //     corromperia a tela alternativa. Em pipe/arquivo, mantém o
+        //     stderr (amigável para CI e depuração).
+        // EN: stderr is a TTY (TUI follows): krt logs AND library warnings
+        //     (Qt/gtk) go to a file — writing to stderr would corrupt the
+        //     alternate screen. On pipes/files, keep stderr (CI- and
+        //     debug-friendly).
+        // ZH: stderr 为 TTY（随后进入 TUI）：krt 日志与库警告（Qt/gtk）写入
+        //     文件——写 stderr 会破坏备用屏幕。管道/文件时保持 stderr。
+        if (::isatty(fileno(stderr)))
+        {
+                const auto log_path = app::cache_dir("kiutube") / "kiutube.log";
+                if (krt::log::use_file(log_path.string()))
+                {
+                        std::fflush(stderr);
+                        dup2(fileno(krt::log::sink_slot()), STDERR_FILENO);
+                        krt::log::info("log: desviado p/ / redirected to / desviado a / 重定向到: {}",
+                                       log_path.string());
+                }
         }
         sys::Mpris mpris(engine); // PT: thread própria; dtor junta antes do engine / own thread; joins before the engine
         if (want_play)

@@ -66,6 +66,36 @@ inline const char *level_name(Level l)
         return "?";
 }
 
+// PT: Sink alternativo: use_file() troca a saída para um arquivo (a TUI
+//     redireciona stderr para lá — logs e warnings de bibliotecas Qt/gtk
+//     não corrompem mais a tela). A troca acontece no boot (main, uma
+//     thread); depois o ponteiro só é lido.
+// EN: Alternate sink: use_file() swaps the output to a file (the TUI
+//     redirects stderr to it — logs and Qt/gtk library warnings no
+//     longer corrupt the screen). The swap happens at boot (main,
+//     single-threaded); afterwards the pointer is only read.
+// ZH: 备用输出：use_file() 将日志切换到文件（TUI 会把 stderr 重定向到该
+//     文件——日志与 Qt/gtk 库的警告不再破坏屏幕）。切换发生在启动
+//     （main，单线程）；之后只读。
+inline std::FILE *&sink_slot()
+{
+        static std::FILE *f = stderr;
+        return f;
+}
+
+// PT: Abre `path` (append) e passa a gravar nele. false = sem permissão.
+// EN: Opens `path` (append) and starts writing there. false = no access.
+// ZH: 以追加模式打开 path 并切换到该文件输出；失败返回 false。
+inline bool use_file(const std::string &path)
+{
+        if (std::FILE *f = std::fopen(path.c_str(), "a"))
+        {
+                sink_slot() = f;
+                return true;
+        }
+        return false;
+}
+
 template <typename... A>
 void write(Level lv, std::format_string<A...> fmt, A &&...args)
 {
@@ -79,7 +109,8 @@ void write(Level lv, std::format_string<A...> fmt, A &&...args)
         const std::string line = std::format("[kiutube {}.{:03d} {}] {}", tbuf,
                                              static_cast<int>(ms.count()), level_name(lv),
                                              std::format(fmt, std::forward<A>(args)...));
-        std::fprintf(stderr, "%s\n", line.c_str());
+        std::fprintf(sink_slot(), "%s\n", line.c_str());
+        std::fflush(sink_slot());
 }
 
 template <typename... A>
