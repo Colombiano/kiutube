@@ -348,6 +348,13 @@ struct Ui
         //     选择初始主题。
         std::vector<app::Theme> themes;
         const app::Theme *theme = nullptr;
+        // PT: Cache do título raw: se já foi escrito e a largura não
+        //     mudou, não reescreve (a linha 1 fica intocada entre redraws).
+        // EN: Raw title cache: once written, not rewritten unless the
+        //     width changes (line 1 stays untouched between redraws).
+        // ZH: raw 标题缓存：宽度不变则不重写（行 1 在重绘间保持不变）。
+        bool title_drawn_ = false;
+        int title_drawn_cols_ = 0;
         viz::Visualizer viz;
         // PT: Janela gráfica (thread própria). O callback roda NO SCHEDULER
         //     (post_function) quando o usuário fecha a janela: alinha o modo.
@@ -383,6 +390,52 @@ struct Ui
         [[nodiscard]] const char *ic(const char *nerd, const char *ascii) const
         {
                 return settings.nerd_fonts ? nerd : ascii;
+        }
+
+        // PT: Título em raw (fora da grade): negrito + largura dupla
+        //     (DECDWL, ESC#6) + cor accent. Terminais sem DECDWL ignoram e
+        //     mostram só negrito normal — degradação graciosa. Reescrito
+        //     só quando a largura muda (cache); a grade nunca toca a
+        //     linha 1.
+        // EN: Raw title (outside the grid): bold + double-width (DECDWL,
+        //     ESC#6) + accent color. Terminals without DECDWL ignore it and
+        //     show plain bold — graceful degradation. Rewritten only when
+        //     the width changes (cached); the grid never touches line 1.
+        // ZH: 标题以 raw 写出（在网格之外）：粗体 + 双倍宽（DECDWL，
+        //     ESC#6）+ accent 色。不支持 DECDWL 的终端仅显示普通粗体。
+        void write_title_raw()
+        {
+                const std::string text = std::string(settings.nerd_fonts ? "\xef\x80\x81 " : "") +
+                                         "kiutube - player de musica para terminal (reescrita C++20 do kew)";
+                const auto accent = themed("accent");
+                std::string sgr;
+                if (accent.set)
+                        sgr = tui::truecolor_enabled()
+                                  ? std::format("\x1b[1;38;2;{};{};{}m", accent.rgb.r, accent.rgb.g, accent.rgb.b)
+                                  : std::format("\x1b[1;38;5;{}m", tui::quantize256(accent.rgb));
+                else
+                        sgr = "\x1b[1m";
+                // PT: Com largura dupla cada glifo ocupa 2 colunas: o texto
+                //     cabe em cols/2 glifos (contagem por codepoint UTF-8).
+                // EN: In double-width each glyph takes 2 columns: the text
+                //     fits cols/2 glyphs (counted by UTF-8 codepoint).
+                // ZH: 双倍宽下每个 glif 占 2 列：按 UTF-8 码点截断到
+                //     cols/2 个。
+                const std::size_t max_cp = static_cast<std::size_t>(std::max(10, buf.cols() / 2 - 2));
+                std::string clipped;
+                std::size_t cp = 0;
+                for (std::size_t i = 0; i < text.size() && cp < max_cp;)
+                {
+                        const std::size_t n = (text[i] & 0x80) == 0 ? 1
+                                              : (text[i] & 0xe0) == 0xc0 ? 2
+                                              : (text[i] & 0xf0) == 0xe0 ? 3
+                                                                         : 4;
+                        clipped.append(text, i, n);
+                        i += n;
+                        ++cp;
+                }
+                term.write_segments({std::string("\x1b[1;1H\x1b[2K\x1b#6") + sgr + clipped +
+                                     "\x1b[0m\x1b#5"});
         }
 
         // PT: Cor de uma chave do tema ativo com fallback no default; sem
@@ -477,22 +530,22 @@ struct Ui
                 }
 
                 buf.clear();
-                // PT: Cabeçalho pedido pelo usuário: linha 1 = nome+descrição;
-                //     linhas 3-4 = ajuda curta das teclas (PT completo na 3,
-                //     restante do PT + EN na 4 — ES/ZH no `kiutube --help`);
-                //     linhas 6-8 = o bloco da faixa (título, barra+tempos,
-                //     config); visualizador a partir da linha 10.
-                // EN: User-requested header: line 1 = name+tagline; lines
-                //     3-4 = short key help (full PT on 3, rest of PT + EN on
-                //     4 — ES/ZH in `kiutube --help`); lines 6-8 = the track
-                //     block (title, bar+times, config); visualizer from
-                //     row 10.
-                // ZH: 用户要求的页眉：第 1 行 = 名称+简介；第 3-4 行 = 快捷键
+                // PT: Cabeçalho pedido pelo usuário: linha 1 = nome+descrição
+                //     em NEGRITO + LARGURA DUPLA (raw, fora da grade — ver
+                //     write_title_raw); linhas 3-4 = ajuda curta das teclas
+                //     (PT completo na 3, restante do PT + EN na 4 — ES/ZH
+                //     no `kiutube --help`); linhas 6-8 = o bloco da faixa
+                //     (título, barra+tempos, config); visualizador a partir
+                //     da linha 10.
+                // EN: User-requested header: line 1 = name+tagline in BOLD
+                //     DOUBLE-WIDTH (raw, outside the grid — see
+                //     write_title_raw); lines 3-4 = short key help (full PT
+                //     on 3, rest of PT + EN on 4 — ES/ZH in
+                //     `kiutube --help`); lines 6-8 = the track block
+                //     (title, bar+times, config); visualizer from row 10.
+                // ZH: 用户要求的页眉：第 1 行 = 粗体双倍宽名称+简介（raw，
+                //     在网格之外 —— 见 write_title_raw）；第 3-4 行 = 快捷键
                 //     简明帮助；第 6-8 行 = 曲目块；可视化器从第 10 行起。
-                buf.put(1, 2,
-                        std::string(settings.nerd_fonts ? "\xef\x80\x81 " : "") +
-                            "kiutube - player de musica para terminal (reescrita C++20 do kew)",
-                        themed("accent"));
                 buf.put(3, 2,
                         std::string(ic("\xef\x81\x8b ", "")) + "espaco pausa/toca · " +
                             ic("\xef\x81\x91 ", "") + "n proxima · " + ic("\xef\x83\xac ", "") +
@@ -601,6 +654,19 @@ struct Ui
                 if (trackinfo.active)
                         draw_trackinfo();
                 term.write_segments(buf.flush_diff());
+                // PT: Título em raw (linha 1, fora da grade): reescrito só
+                //     na primeira vez ou quando a largura muda (a grade não
+                //     gerencia essa linha).
+                // EN: Raw title (line 1, outside the grid): rewritten only
+                //     on the first frame or on width change (the grid does
+                //     not manage this line).
+                // ZH: raw 标题（第 1 行，网格之外）：仅在首帧或宽度变化时重写。
+                if (!title_drawn_ || title_drawn_cols_ != buf.cols())
+                {
+                        title_drawn_ = true;
+                        title_drawn_cols_ = buf.cols();
+                        write_title_raw();
+                }
         }
 
         void draw_picker()
