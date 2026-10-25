@@ -373,6 +373,18 @@ struct Ui
 
         ~Ui() = default; // PT: vizwin (membro último) é destruída primeiro, fechando a thread GUI. / vizwin (last member) is destroyed first, closing the GUI thread.
 
+        // PT: Ícone Nerd Font (Font Awesome, PUA) ou fallback ASCII,
+        //     conforme settings.nerd_fonts. Glifos de 3 bytes cabem na
+        //     célula (ch[8]).
+        // EN: Nerd Font icon (Font Awesome, PUA) or ASCII fallback,
+        //     per settings.nerd_fonts. 3-byte glyphs fit the cell (ch[8]).
+        // ZH: 依 settings.nerd_fonts 返回 Nerd Font 图标（Font Awesome，
+        //     PUA）或 ASCII 回退。3 字节 glif 可容纳于单元格（ch[8]）。
+        [[nodiscard]] const char *ic(const char *nerd, const char *ascii) const
+        {
+                return settings.nerd_fonts ? nerd : ascii;
+        }
+
         // PT: Cor de uma chave do tema ativo com fallback no default; sem
         //     definição em nenhum = herda o terminal ({}).
         // EN: A theme key's color with fallback to the default theme; unset
@@ -481,11 +493,20 @@ struct Ui
                         std::string(settings.nerd_fonts ? "\xef\x80\x81 " : "") +
                             "kiutube - player de musica para terminal (reescrita C++20 do kew)",
                         themed("accent"));
-                buf.put(3, 2, "espaco pausa/toca · n proxima · <-/-> seek +/-5s · +/- volume · l biblioteca · g "
-                              "letra · F8 YouTube Music · F9 traducao",
+                buf.put(3, 2,
+                        std::string(ic("\xef\x81\x8b ", "")) + "espaco pausa/toca · " +
+                            ic("\xef\x81\x91 ", "") + "n proxima · " + ic("\xef\x83\xac ", "") +
+                            "<-/-> seek +/-5s · " + ic("\xef\x80\xa8 ", "") + "+/- volume · " +
+                            ic("\xef\x80\x82 ", "") + "l biblioteca · " + ic("\xef\x83\xb6 ", "") +
+                            "g letra · " + ic("\xef\x85\xaa ", "") + "F8 YouTube Music · " +
+                            ic("\xef\x86\xab ", "") + "F9 traducao",
                         themed("textMuted"));
-                buf.put(4, 2, "v visualizador · p fila · i faixa · c capa · t tema · q sai | space pause · n next · "
-                              "l library · g lyrics · F8 YTM · v viz · p queue · c cover · t theme · q quit",
+                buf.put(4, 2,
+                        std::string(ic("\xef\x82\x80 ", "")) + "v visualizador · " + ic("\xef\x83\x8a ", "") +
+                            "p fila · " + ic("\xef\x84\xa9 ", "") + "i faixa · " + ic("\xef\x80\xbe ", "") +
+                            "c capa · " + ic("\xef\x87\xbc ", "") + "t tema · " + ic("\xef\x82\x8b ", "") +
+                            "q sai | space pause · n next · l library · g lyrics · F8 YTM · v viz · p queue · "
+                            "c cover · t theme · q quit",
                         themed("textMuted"));
                 if (cur.path.empty())
                 {
@@ -500,7 +521,7 @@ struct Ui
                 }
                 else
                 {
-                        buf.put(6, 2, cur.title, themed("nowplaying"));
+                        buf.put(6, 2, std::string(ic("\xef\x80\xa5 ", "")) + cur.title, themed("nowplaying"));
                         const auto shown_pos = std::min(pos, cur.duration);
                         // PT: Barra de progresso com largura adaptativa
                         //     (cols/4, 10..30) + tempos. Cores
@@ -535,11 +556,11 @@ struct Ui
                         const std::string sym = engine.is_playing()
                                                     ? (settings.nerd_fonts ? " \xef\x81\x8b " : "  |>")
                                                     : (settings.nerd_fonts ? " \xef\x81\x8c " : "  ||");
-                        const std::string line = " " + mmss(shown_pos) + " / " + mmss(cur.duration) + sym +
-                                                 "  vol " +
-                                                 std::to_string(static_cast<int>(engine.volume() * 100.0f + 0.5f)) +
-                                                 "%  queue " + std::to_string(engine.queue_size()) +
-                                                 "  key " + last_key;
+                        const std::string line =
+                            " " + mmss(shown_pos) + " / " + mmss(cur.duration) + sym + "  " +
+                            std::string(ic("\xef\x80\xa8 ", "")) +
+                            std::to_string(static_cast<int>(engine.volume() * 100.0f + 0.5f)) + "%  " +
+                            ic("\xef\x83\x8a ", "") + std::to_string(engine.queue_size()) + "  key " + last_key;
                         buf.put(7, 2 + bw + 1, line, themed("text"));
                 }
                 std::string cfg = "volume=" + std::to_string(settings.volume) + " shuffle=" +
@@ -589,7 +610,7 @@ struct Ui
                         draw_ytm_picker();
                         return;
                 }
-                buf.put(13, 2, "LIB> " + picker.filter + "_");
+                buf.put(13, 2, std::string(ic("\xef\x80\x82 ", "")) + "LIB> " + picker.filter + "_");
                 const std::size_t max_rows = 8;
                 if (picker.sel >= picker.matches.size())
                         picker.sel = picker.matches.empty() ? 0 : picker.matches.size() - 1;
@@ -598,7 +619,7 @@ struct Ui
                 {
                         const auto &m = picker.matches[start + r];
                         const auto &t = (*tracks)[static_cast<std::size_t>(m.index)];
-                        std::string line = (start + r == picker.sel ? "> " : "  ") + t.title;
+                        std::string line = std::string(ic("\xef\x81\x94 ", "> ")) + t.title;
                         if (!t.artist.empty())
                                 line += "  --  " + t.artist;
                         buf.put(14 + r, 2, line, start + r == picker.sel ? themed("playlist.playing") : tui::Color{});
@@ -617,14 +638,14 @@ struct Ui
         {
                 if (picker.ytm_prompt)
                 {
-                        buf.put(13, 2, "YTM> " + picker.filter + "_");
+                        buf.put(13, 2, std::string(ic("\xef\x85\xaa ", "")) + "YTM> " + picker.filter + "_");
                         buf.put(14, 2, "Enter: buscar / search / buscar / 搜索   ESC: "
                                        "cancelar / cancel / cancelar / 取消");
                 }
                 else
                 {
-                        buf.put(13, 2, "YTM> " + picker.filter + "  (" +
-                                       std::to_string(picker.ytm_filtered.size()) + ")");
+                        buf.put(13, 2, std::string(ic("\xef\x85\xaa ", "")) + "YTM> " + picker.filter + "  (" +
+                                           std::to_string(picker.ytm_filtered.size()) + ")");
                         const std::size_t max_rows = 8;
                         if (picker.sel >= picker.ytm_filtered.size())
                                 picker.sel = picker.ytm_filtered.empty() ? 0 : picker.ytm_filtered.size() - 1;
@@ -634,7 +655,7 @@ struct Ui
                         {
                                 const auto &t = picker.ytm_results[static_cast<std::size_t>(
                                     picker.ytm_filtered[start + r])];
-                                std::string line = (start + r == picker.sel ? "> " : "  ") + t.title + "  --  " +
+                                std::string line = std::string(ic("\xef\x81\x94 ", "> ")) + t.title + "  --  " +
                                                    t.artist;
                                 if (t.duration_seconds > 0)
                                         line += "  (" + mmss(std::chrono::seconds(t.duration_seconds)) + ")";
@@ -649,12 +670,14 @@ struct Ui
         {
                 if (lyrics.loading)
                 {
-                        buf.put(13, 2, "LRCLIB... / fetching / buscando / 获取中");
+                        buf.put(13, 2, std::string(ic("\xef\x87\x8e ", "")) +
+                                           "LRCLIB... / fetching / buscando / 获取中");
                         return;
                 }
                 if (lyrics.not_found)
                 {
-                        buf.put(13, 2, "letra nao encontrada / lyrics not found / letra no encontrada / 未找到歌词");
+                        buf.put(13, 2, std::string(ic("\xef\x80\x8d ", "")) +
+                                           "letra nao encontrada / lyrics not found / letra no encontrada / 未找到歌词");
                         return;
                 }
                 std::size_t row = 13;
@@ -725,7 +748,9 @@ struct Ui
         {
                 if (cover.image_path.empty())
                 {
-                        buf.put(13, 2, "sem capa / no cover / sin caratula / 无封面  (c: fechar / close / cerrar / 关闭)");
+                        buf.put(13, 2,
+                                std::string(ic("\xef\x80\xbe ", "")) +
+                                    "sem capa / no cover / sin caratula / 无封面  (c: fechar / close / cerrar / 关闭)");
                         return;
                 }
                 const int x0 = std::max(0, buf.cols() - cover.canvas.cols() - 2);
@@ -752,13 +777,17 @@ struct Ui
         // ZH: 队列播放列表：">>" 当前曲目，">" 选中项；Enter 跳转，ESC 关闭。
         void draw_playlist()
         {
-                buf.put(13, 2, "QUEUE / playlist / cola / 播放列表  (" +
-                                   std::to_string(playlist.items.size()) + ")  Enter: pular / jump / saltar / 跳转");
+                buf.put(13, 2,
+                        std::string(ic("\xef\x83\x8a ", "")) + "QUEUE / playlist / cola / 播放列表  (" +
+                            std::to_string(playlist.items.size()) +
+                            ")  Enter: pular / jump / saltar / 跳转");
                 const auto cur = engine.current();
                 std::size_t row = 14;
                 if (!cur.path.empty())
                 {
-                        buf.put(static_cast<int>(row), 2, ">> " + cur.title + "  (<)", themed("nowplaying"));
+                        buf.put(static_cast<int>(row), 2,
+                                std::string(ic("\xef\x81\x8b ", ">> ")) + cur.title + "  (<)",
+                                themed("nowplaying"));
                         ++row;
                 }
                 const std::size_t max_rows = 12;
@@ -767,7 +796,7 @@ struct Ui
                 const std::size_t start = playlist.sel >= max_rows ? playlist.sel - max_rows + 1 : 0;
                 for (std::size_t r = 0; r < max_rows && start + r < playlist.items.size(); ++r)
                 {
-                        std::string line = (start + r == playlist.sel ? "> " : "  ") +
+                        std::string line = std::string(ic("\xef\x81\x94 ", "> ")) +
                                            stem_title(playlist.items[start + r]);
                         buf.put(static_cast<int>(row + r), 2, line,
                                 start + r == playlist.sel ? themed("playlist.playing") : tui::Color{});
@@ -788,21 +817,28 @@ struct Ui
                 const auto cur = engine.current();
                 if (cur.path.empty())
                 {
-                        buf.put(13, 2, "nada tocando / nothing playing / nada sonando / 没有在播");
+                        buf.put(13, 2,
+                                std::string(ic("\xef\x84\xa9 ", "")) +
+                                    "nada tocando / nothing playing / nada sonando / 没有在播");
                         return;
                 }
                 const auto [artist, title] = split_artist_title(cur.title);
-                buf.put(13, 2, "FAIXA / track / pista / 曲目");
-                buf.put(14, 2, "titulo / title / titulo / 标题: " + title);
-                buf.put(15, 2, "artista / artist / artista / 艺人: " + (artist.empty() ? "-" : artist));
-                buf.put(16, 2, "dur / length / duracion / 时长: " + mmss(cur.duration) +
-                                   "   pos / position / posicion / 位置: " + mmss(engine.position()));
-                buf.put(17, 2, std::string("estado / state / estado / 状态: ") +
-                                   (engine.is_playing() ? "playing / 播放中" : "paused / 已暂停") +
-                                   "   vol: " +
-                                   std::to_string(static_cast<int>(engine.volume() * 100.0f + 0.5f)) + "%");
-                buf.put(18, 2, "fila / queue / cola / 队列: " + std::to_string(engine.queue_size()));
-                buf.put(19, 2, "path: " + cur.path);
+                buf.put(13, 2, std::string(ic("\xef\x84\xa9 ", "")) + "FAIXA / track / pista / 曲目");
+                buf.put(14, 2, std::string(ic("\xef\x80\x81 ", "")) + "titulo / title / titulo / 标题: " + title);
+                buf.put(15, 2, std::string(ic("\xef\x80\x87 ", "")) + "artista / artist / artista / 艺人: " +
+                                    (artist.empty() ? "-" : artist));
+                buf.put(16, 2,
+                        std::string(ic("\xef\x80\x97 ", "")) + "dur / length / duracion / 时长: " +
+                            mmss(cur.duration) + "   pos / position / posicion / 位置: " + mmss(engine.position()));
+                buf.put(17, 2,
+                        std::string(ic(engine.is_playing() ? "\xef\x81\x8b " : "\xef\x81\x8c ", "")) +
+                            "estado / state / estado / 状态: " +
+                            (engine.is_playing() ? "playing / 播放中" : "paused / 已暂停") + "   " +
+                            ic("\xef\x80\xa8 ", "") +
+                            std::to_string(static_cast<int>(engine.volume() * 100.0f + 0.5f)) + "%");
+                buf.put(18, 2, std::string(ic("\xef\x83\x8a ", "")) + "fila / queue / cola / 队列: " +
+                                    std::to_string(engine.queue_size()));
+                buf.put(19, 2, std::string(ic("\xef\x84\x95 ", "")) + "path: " + cur.path);
         }
 };
 
